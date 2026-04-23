@@ -5,6 +5,7 @@ Backlog folder for audit findings and planned work.
 ## Files
 
 - **[findings.md](findings.md)** — Full audit backlog from the 2026-04-23 read-only validation pipeline. 64 actionable items across 8 phases + 6 blocking decisions. Check items off as they land.
+- **[blueprint_gap_analysis.md](blueprint_gap_analysis.md)** — 2026-04-23 compliance review against `docs/project/FINAL_ARABIC_BLUEPRINT_STATE_LITIGATION_SYSTEM.md` (customer requirements). 66 blueprint items checked: 37 aligned, 17 partial, 7 missing, 5 diverge. Feeds a proposed Phase 9 (P9-01..P9-22) for the main backlog.
 
 ## Conventions
 
