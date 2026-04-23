@@ -152,8 +152,8 @@ public class AttachmentService {
                 AuthorizationContext ctx = authorizationService.loadContext(actorUserId);
                 authorizationService.requireReadAccessToCase(ctx, s.branchId(), s.departmentId(), s.currentOwnerUserId());
             }
-            case EXECUTION_FILE -> executionService.getFile(scopeId, actorUserId);
-            case EXECUTION_STEP -> executionService.getFileForStep(scopeId, actorUserId);
+            case EXECUTION_FILE -> { executionService.getFile(scopeId, actorUserId); }
+            case EXECUTION_STEP -> { executionService.getFileForStep(scopeId, actorUserId); }
         }
     }
 

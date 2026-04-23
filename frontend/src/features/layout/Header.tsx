@@ -1,10 +1,14 @@
 import { useState } from 'react';
-import { LogOut } from 'lucide-react';
+import { LogOut, Menu } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
 import { Button } from '@/shared/ui/Button';
 import { ROLE_LABEL_AR } from '@/shared/types/domain';
 
-export function Header() {
+interface HeaderProps {
+  onMenuToggle?: () => void;
+}
+
+export function Header({ onMenuToggle }: HeaderProps) {
   const { user, logout } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
 
@@ -22,14 +26,24 @@ export function Header() {
   return (
     <header className="flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4">
       <div className="flex items-center gap-3">
+        {/* Hamburger — mobile only */}
+        {onMenuToggle && (
+          <button
+            onClick={onMenuToggle}
+            className="rounded p-1.5 text-slate-600 hover:bg-slate-100 md:hidden"
+            aria-label="فتح القائمة"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        )}
         <div className="text-sm font-semibold text-brand-700">إدارة قضايا الدولة</div>
       </div>
 
       <div className="flex items-center gap-3">
         {user && (
           <div className="text-end text-sm">
-            <div className="font-medium text-slate-800">{user.fullName}</div>
-            {roleLabel && <div className="text-xs text-slate-500">{roleLabel}</div>}
+            <div className="font-medium text-slate-800 max-sm:hidden">{user.fullName}</div>
+            {roleLabel && <div className="text-xs text-slate-500 max-sm:hidden">{roleLabel}</div>}
           </div>
         )}
         <Button
@@ -46,4 +60,3 @@ export function Header() {
     </header>
   );
 }
-
