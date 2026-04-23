@@ -13,6 +13,7 @@ import sy.gov.sla.access.infrastructure.UserRoleRepository;
 import sy.gov.sla.common.exception.BadRequestException;
 import sy.gov.sla.common.exception.ForbiddenException;
 import sy.gov.sla.common.exception.NotFoundException;
+import sy.gov.sla.common.logging.UserActionLog;
 import sy.gov.sla.identity.infrastructure.UserRepository;
 
 /**
@@ -49,6 +50,7 @@ public class UserRoleAdminService {
             return;
         }
         userRoleRepository.save(UserRole.builder().userId(userId).roleId(r.getId()).build());
+        UserActionLog.action("assigned role {} to user #{}", role, userId);
     }
 
     public void revoke(Long userId, RoleType role, Long actorUserId) {
@@ -61,6 +63,7 @@ public class UserRoleAdminService {
         UserRole existing = userRoleRepository.findByUserIdAndRoleId(userId, r.getId())
                 .orElseThrow(() -> new NotFoundException("Role not assigned"));
         userRoleRepository.delete(existing);
+        UserActionLog.action("removed role {} from user #{}", role, userId);
     }
 
     private AuthorizationContext requireAuthorized(Long actorUserId, RoleType targetRole) {

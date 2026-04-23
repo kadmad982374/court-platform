@@ -2,7 +2,25 @@
   "permissions": {
     "allow": [
       "Bash(git diff *)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(docker --version)",
+      "Bash(docker info *)",
+      "Bash(docker system *)",
+      "Bash(docker build *)",
+      "Bash(docker push *)",
+      "Bash(docker manifest *)",
+      "Bash(docker tag *)",
+      "Bash(chmod +x \"C:/Users/FAD/IdeaProjects/lawyer/court-platform/scripts/setup-test-server.sh\")",
+      "Bash(bash -n \"C:/Users/FAD/IdeaProjects/lawyer/court-platform/scripts/setup-test-server.sh\")",
+      "Bash(bash \"C:/Users/FAD/IdeaProjects/lawyer/court-platform/scripts/setup-test-server.sh\" --help)",
+      "Bash(terraform output *)",
+      "Bash(mkdir -p ~/.ssh-deploy)",
+      "Bash(cp \"C:/Users/FAD/IdeaProjects/order-sys org/infrastructure/Hetzner/temp-infra/.secrets/fadi_ed25519\" ~/.ssh-deploy/fadi_ed25519)",
+      "Bash(chmod 600 ~/.ssh-deploy/fadi_ed25519)",
+      "Read(//c/Users/FAD/**)",
+      "Bash(ssh *)",
+      "Bash(scp -i ~/.ssh-deploy/fadi_ed25519 -o UserKnownHostsFile=~/.ssh-deploy/known_hosts -o BatchMode=yes \"C:/Users/FAD/IdeaProjects/lawyer/court-platform/docker-compose.test.yml\" \"C:/Users/FAD/IdeaProjects/lawyer/court-platform/scripts/setup-test-server.sh\" fadi@178.104.171.3:~/)",
+      "Bash(scp *)"
     ]
   }
 }

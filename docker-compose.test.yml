@@ -1,0 +1,79 @@
+# ============================================================
+# docker-compose.test.yml
+# Test-server deployment: pulls prebuilt images from Docker Hub.
+# Intended for test.kubetrust.com (or any test host with an
+# external reverse proxy / TLS terminator in front).
+#
+# Server-side usage:
+#   1. docker login  (if images become private later)
+#   2. cp .env.test.example .env.test   (and edit)
+#   3. docker compose -f docker-compose.test.yml --env-file .env.test pull
+#   4. docker compose -f docker-compose.test.yml --env-file .env.test up -d
+# ============================================================
+
+services:
+
+  # ── PostgreSQL ─────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-sla_test}
+      POSTGRES_USER: ${DB_USER:-sla}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-sla} -d ${DB_NAME:-sla_test}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Spring Boot Backend (pulled from Docker Hub) ───────────
+  backend:
+    image: fadidasus/court-platform-backend:02
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/${DB_NAME:-sla_test}
+      DB_USER: ${DB_USER:-sla}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      SLA_JWT_SECRET: ${SLA_JWT_SECRET:?SLA_JWT_SECRET is required}
+      SLA_BOOTSTRAP_ADMIN_ENABLED: "true"
+      SLA_BOOTSTRAP_ADMIN_PASSWORD: ${SLA_BOOTSTRAP_ADMIN_PASSWORD:-ChangeMe!2026}
+      SLA_ATTACHMENTS_BASE_DIR: /app/attachments-data
+      SERVER_PORT: 8080
+    volumes:
+      - attachments-data:/app/attachments-data
+    # Backend is NOT exposed to the host — frontend nginx proxies to it over the compose network
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/v3/api-docs > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+  # ── Nginx + React Frontend (pulled from Docker Hub) ────────
+  frontend:
+    image: fadidasus/court-platform-frontend:02
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${TEST_PORT:-80}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/nginx-health > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  db-data:
+    name: sla-test-db
+  attachments-data:
+    name: sla-test-attachments

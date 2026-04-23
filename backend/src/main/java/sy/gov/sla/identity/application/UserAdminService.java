@@ -30,6 +30,7 @@ import sy.gov.sla.common.exception.BadRequestException;
 import sy.gov.sla.common.exception.ConflictException;
 import sy.gov.sla.common.exception.ForbiddenException;
 import sy.gov.sla.common.exception.NotFoundException;
+import sy.gov.sla.common.logging.UserActionLog;
 import sy.gov.sla.identity.api.CreateUserRequest;
 import sy.gov.sla.identity.api.UpdateUserRequest;
 import sy.gov.sla.identity.api.UserAdminDto;
@@ -110,7 +111,9 @@ public class UserAdminService {
                 .defaultDepartmentId(req.defaultDepartmentId())
                 .createdAt(Instant.now())
                 .build();
-        return userRepository.save(u).getId();
+        Long newId = userRepository.save(u).getId();
+        UserActionLog.action("created user '{}' (id #{}) — roles={}", req.username(), newId, List.of());
+        return newId;
     }
 
     // ============================================================
@@ -144,6 +147,7 @@ public class UserAdminService {
         if (req.active() != null) {
             u.setActive(req.active());
         }
+        UserActionLog.action("updated user #{} — active={}", id, u.isActive());
         return toAdminDto(u);
     }
 

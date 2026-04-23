@@ -10,6 +10,7 @@ import sy.gov.sla.access.infrastructure.RoleRepository;
 import sy.gov.sla.access.infrastructure.UserRoleRepository;
 import sy.gov.sla.common.exception.AppException;
 import sy.gov.sla.common.exception.BadRequestException;
+import sy.gov.sla.common.logging.UserActionLog;
 import sy.gov.sla.identity.api.*;
 import sy.gov.sla.identity.domain.PasswordResetCode;
 import sy.gov.sla.identity.domain.RefreshToken;
@@ -49,26 +50,37 @@ public class AuthService {
 
     public TokenPairResponse login(LoginRequest req) {
         User user = userRepository.findByUsername(req.username())
-                .orElseThrow(() -> new AppException(org.springframework.http.HttpStatus.UNAUTHORIZED,
-                        "INVALID_CREDENTIALS", "Invalid credentials"));
+                .orElseThrow(() -> {
+                    UserActionLog.system("login failed — reason={}, username={}", "INVALID_CREDENTIALS", req.username());
+                    return new AppException(org.springframework.http.HttpStatus.UNAUTHORIZED,
+                            "INVALID_CREDENTIALS", "Invalid credentials");
+                });
         if (!user.isActive() || user.isLocked()) {
+            UserActionLog.system("login failed — reason={}, username={}", "ACCOUNT_DISABLED", req.username());
             throw new AppException(org.springframework.http.HttpStatus.UNAUTHORIZED,
                     "ACCOUNT_DISABLED", "Account disabled or locked");
         }
         if (!passwordEncoder.matches(req.password(), user.getPasswordHash())) {
+            UserActionLog.system("login failed — reason={}, username={}", "INVALID_CREDENTIALS", req.username());
             throw new AppException(org.springframework.http.HttpStatus.UNAUTHORIZED,
                     "INVALID_CREDENTIALS", "Invalid credentials");
         }
         user.setLastLoginAt(Instant.now());
-        return issueTokens(user);
+        TokenPairResponse tokens = issueTokens(user);
+        UserActionLog.action("signed in");
+        return tokens;
     }
 
     public TokenPairResponse refresh(RefreshTokenRequest req) {
         String hash = sha256(req.refreshToken());
         RefreshToken rt = refreshTokenRepository.findByTokenHash(hash)
-                .orElseThrow(() -> new AppException(org.springframework.http.HttpStatus.UNAUTHORIZED,
-                        "INVALID_REFRESH_TOKEN", "Invalid refresh token"));
+                .orElseThrow(() -> {
+                    UserActionLog.system("refresh rejected — reason={}", "INVALID_REFRESH_TOKEN");
+                    return new AppException(org.springframework.http.HttpStatus.UNAUTHORIZED,
+                            "INVALID_REFRESH_TOKEN", "Invalid refresh token");
+                });
         if (rt.isRevoked() || rt.getExpiresAt().isBefore(Instant.now())) {
+            UserActionLog.system("refresh rejected — reason={}", "INVALID_REFRESH_TOKEN");
             throw new AppException(org.springframework.http.HttpStatus.UNAUTHORIZED,
                     "INVALID_REFRESH_TOKEN", "Invalid refresh token");
         }
@@ -76,9 +88,14 @@ public class AuthService {
         rt.setRevoked(true);
         rt.setRevokedAt(Instant.now());
         User user = userRepository.findById(rt.getUserId())
-                .orElseThrow(() -> new AppException(org.springframework.http.HttpStatus.UNAUTHORIZED,
-                        "INVALID_REFRESH_TOKEN", "Invalid refresh token"));
-        return issueTokens(user);
+                .orElseThrow(() -> {
+                    UserActionLog.system("refresh rejected — reason={}", "INVALID_REFRESH_TOKEN");
+                    return new AppException(org.springframework.http.HttpStatus.UNAUTHORIZED,
+                            "INVALID_REFRESH_TOKEN", "Invalid refresh token");
+                });
+        TokenPairResponse tokens = issueTokens(user);
+        UserActionLog.action("refreshed session");
+        return tokens;
     }
 
     public void logout(LogoutRequest req) {
@@ -86,6 +103,7 @@ public class AuthService {
         refreshTokenRepository.findByTokenHash(hash).ifPresent(rt -> {
             rt.setRevoked(true);
             rt.setRevokedAt(Instant.now());
+            UserActionLog.action("signed out");
         });
     }
 
@@ -104,6 +122,7 @@ public class AuthService {
                     .consumed(false)
                     .build());
             otpDispatcher.dispatch(req.mobileNumber(), code);
+            UserActionLog.system("password reset code issued to mobile={}", req.mobileNumber());
         });
     }
 
@@ -121,6 +140,7 @@ public class AuthService {
             c.setAttempts(c.getAttempts() + 1);
         }
         if (match == null) {
+            UserActionLog.system("password reset failed — reason=INVALID_OTP, mobile={}", req.mobileNumber());
             throw new BadRequestException("INVALID_OTP", "Invalid code or mobile");
         }
         match.setConsumed(true);
@@ -129,6 +149,7 @@ public class AuthService {
         refreshTokenRepository.findAll().stream()
                 .filter(rt -> rt.getUserId().equals(user.getId()) && !rt.isRevoked())
                 .forEach(rt -> { rt.setRevoked(true); rt.setRevokedAt(Instant.now()); });
+        UserActionLog.system("password reset completed for user id={}", user.getId());
     }
 
     private TokenPairResponse issueTokens(User user) {

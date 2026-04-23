@@ -9,6 +9,7 @@ import sy.gov.sla.access.application.AuthorizationContext;
 import sy.gov.sla.access.application.AuthorizationService;
 import sy.gov.sla.common.exception.BadRequestException;
 import sy.gov.sla.common.exception.NotFoundException;
+import sy.gov.sla.common.logging.UserActionLog;
 import sy.gov.sla.litigationprogression.api.*;
 import sy.gov.sla.litigationprogression.domain.EntryType;
 import sy.gov.sla.litigationprogression.domain.HearingProgressionEntry;
@@ -135,6 +136,9 @@ public class HearingProgressionService {
                 stageId, info.litigationCaseId(), entry.getId(), EntryType.ROLLOVER,
                 prevDate, entry.getHearingDate(), entry.getPostponementReasonCode(),
                 actorUserId, now));
+
+        UserActionLog.action("rolled over hearing on stage #{} of case #{} — next date={}, reason={}",
+                stageId, info.litigationCaseId(), entry.getHearingDate(), entry.getPostponementReasonCode());
 
         return toDto(entry);
     }

@@ -13,6 +13,7 @@ import sy.gov.sla.common.exception.BadRequestException;
 import sy.gov.sla.common.exception.ConflictException;
 import sy.gov.sla.common.exception.ForbiddenException;
 import sy.gov.sla.common.exception.NotFoundException;
+import sy.gov.sla.common.logging.UserActionLog;
 import sy.gov.sla.identity.api.CreateMembershipRequest;
 import sy.gov.sla.identity.api.UpdateMembershipRequest;
 import sy.gov.sla.identity.infrastructure.UserRepository;
@@ -70,6 +71,8 @@ public class UserMembershipAdminService {
                 .primary(req.primary() != null && req.primary())
                 .active(req.active() == null || req.active())
                 .build());
+        UserActionLog.action("added membership branch={} dept={} role={} to user #{}",
+                saved.getBranchId(), saved.getDepartmentId(), saved.getMembershipType(), userId);
         return toDto(saved);
     }
 
@@ -85,6 +88,9 @@ public class UserMembershipAdminService {
 
         if (req.active() != null)  m.setActive(req.active());
         if (req.primary() != null) m.setPrimary(req.primary());
+        UserActionLog.action("updated membership #{} (branch={} dept={} role={}) of user #{} — active={}",
+                m.getId(), m.getBranchId(), m.getDepartmentId(), m.getMembershipType(),
+                userId, m.isActive());
         return toDto(m);
     }
 

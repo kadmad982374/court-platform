@@ -205,6 +205,12 @@ Risk: **none** · Runs at the end of every phase; called out here to not forget 
 
 ---
 
+## Phase 8b — Deployment-discovered bugs (found 2026-04-23 during test-server bring-up)
+
+- [ ] **P8b-01** 🟠 **V20 dev-seed ordering bug** — `V20__dev_seed_test_users.sql:41-46` guards on `admin` existing, but `BootstrapAdminRunner` runs *after* Flyway (per D-018). On first boot V20 no-ops, Flyway records it as `success=true`, and it's never re-executed. All test users were missing on the fresh test server. Worked around on `test.kubetrust.com` by running V20–V23 manually via `psql`, but any future fresh deployment will reproduce this bug. **Fix options:** (A) convert `V20..V23` seed SQLs to repeatable migrations (`R__*.sql`) so Flyway re-checks them every boot; or (B) move dev-user seeding to a Spring `ApplicationReadyEvent` listener that runs *after* `BootstrapAdminRunner`; or (C) add a `FlywayMigrationStrategy` callback that re-runs the seed once admin exists. Option A is simplest.
+
+---
+
 ## Not included (explicit non-goals for this backlog)
 
 The following items require out-of-band decisions or vendor selection and are **not** in this todo list unless the user re-scopes:

@@ -9,6 +9,7 @@ import sy.gov.sla.access.application.AuthorizationService;
 import sy.gov.sla.common.exception.BadRequestException;
 import sy.gov.sla.common.exception.ConflictException;
 import sy.gov.sla.common.exception.NotFoundException;
+import sy.gov.sla.common.logging.UserActionLog;
 import sy.gov.sla.decisionfinalization.api.CaseDecisionDto;
 import sy.gov.sla.decisionfinalization.api.FinalizeRequest;
 import sy.gov.sla.decisionfinalization.domain.CaseDecision;
@@ -78,6 +79,11 @@ public class DecisionFinalizationService {
         events.publishEvent(new CaseFinalizedEvent(
                 info.litigationCaseId(), stageId, decision.getId(),
                 decision.getDecisionType(), decision.getDecisionDate(), actorUserId, now));
+
+        UserActionLog.action("finalized case #{} (stage #{}) — decisionType={}, number={}, amount={} {}",
+                info.litigationCaseId(), stageId, decision.getDecisionType(), decision.getDecisionNumber(),
+                decision.getAdjudgedAmount() == null ? "n/a" : decision.getAdjudgedAmount(),
+                decision.getCurrencyCode() == null ? "" : decision.getCurrencyCode());
 
         return toDto(decision);
     }

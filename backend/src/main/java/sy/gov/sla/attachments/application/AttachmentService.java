@@ -15,6 +15,7 @@ import sy.gov.sla.attachments.infrastructure.AttachmentRepository;
 import sy.gov.sla.common.exception.BadRequestException;
 import sy.gov.sla.common.exception.ForbiddenException;
 import sy.gov.sla.common.exception.NotFoundException;
+import sy.gov.sla.common.logging.UserActionLog;
 import sy.gov.sla.execution.application.ExecutionService;
 import sy.gov.sla.execution.api.ExecutionFileDto;
 import sy.gov.sla.litigationregistration.application.CaseStagePort;
@@ -99,6 +100,7 @@ public class AttachmentService {
         verifyReadAccessToScope(a.getAttachmentScopeType(), a.getScopeId(), actorUserId);
         try {
             InputStream in = storage.open(a.getStorageKey());
+            UserActionLog.action("downloaded attachment #{} ({})", a.getId(), a.getOriginalFilename());
             return new DownloadHandle(a.getOriginalFilename(), a.getContentType(),
                     a.getFileSizeBytes(), in);
         } catch (IOException e) {
@@ -138,6 +140,8 @@ public class AttachmentService {
                     .active(true)
                     .build();
             a = repo.save(a);
+            UserActionLog.action("uploaded attachment #{} ({} bytes) to scope={} scopeId={}",
+                    a.getId(), a.getFileSizeBytes(), type, scopeId);
             return toDto(a);
         } catch (IOException e) {
             throw new IllegalStateException("Cannot store uploaded attachment", e);

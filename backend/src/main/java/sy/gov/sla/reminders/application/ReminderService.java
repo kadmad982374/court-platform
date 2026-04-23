@@ -8,6 +8,7 @@ import sy.gov.sla.access.application.AuthorizationService;
 import sy.gov.sla.common.exception.BadRequestException;
 import sy.gov.sla.common.exception.ForbiddenException;
 import sy.gov.sla.common.exception.NotFoundException;
+import sy.gov.sla.common.logging.UserActionLog;
 import sy.gov.sla.litigationregistration.application.CaseStagePort;
 import sy.gov.sla.litigationregistration.application.CaseStagePort.StageInfo;
 import sy.gov.sla.litigationregistration.domain.LitigationCase;
@@ -66,7 +67,10 @@ public class ReminderService {
                 .status(ReminderStatus.PENDING)
                 .createdAt(now)
                 .build();
-        return toDto(repo.save(r));
+        Reminder saved = repo.save(r);
+        UserActionLog.action("created reminder #{} for case #{} at {}",
+                saved.getId(), caseId, saved.getReminderAt());
+        return toDto(saved);
     }
 
     @Transactional(readOnly = true)
@@ -88,6 +92,7 @@ public class ReminderService {
                     "Cannot revert reminder to PENDING");
         }
         r.setStatus(newStatus);
+        UserActionLog.action("updated reminder #{}", reminderId);
         return toDto(r);
     }
 

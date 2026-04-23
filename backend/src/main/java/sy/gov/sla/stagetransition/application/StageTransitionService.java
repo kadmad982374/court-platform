@@ -10,6 +10,7 @@ import sy.gov.sla.access.domain.DelegatedPermissionCode;
 import sy.gov.sla.common.exception.BadRequestException;
 import sy.gov.sla.common.exception.ConflictException;
 import sy.gov.sla.common.exception.NotFoundException;
+import sy.gov.sla.common.logging.UserActionLog;
 import sy.gov.sla.litigationregistration.application.CaseStagePort;
 import sy.gov.sla.litigationregistration.domain.LifecycleStatus;
 import sy.gov.sla.litigationregistration.domain.StageStatus;
@@ -68,6 +69,8 @@ public class StageTransitionService {
         events.publishEvent(new CasePromotedToAppealEvent(
                 caseId, newStage.parentStageId(), newStage.newStageId(),
                 actorUserId, Instant.now()));
+
+        UserActionLog.action("promoted case #{} to appeal — new stage #{}", caseId, newStage.newStageId());
 
         return new PromoteToAppealResponseDto(
                 caseId, newStage.parentStageId(), newStage.newStageId(),

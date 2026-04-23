@@ -13,6 +13,7 @@ import sy.gov.sla.common.exception.BadRequestException;
 import sy.gov.sla.common.exception.ConflictException;
 import sy.gov.sla.common.exception.ForbiddenException;
 import sy.gov.sla.common.exception.NotFoundException;
+import sy.gov.sla.common.logging.UserActionLog;
 import sy.gov.sla.identity.api.AddCourtAccessRequest;
 import sy.gov.sla.identity.infrastructure.UserRepository;
 import sy.gov.sla.organization.domain.Court;
@@ -74,6 +75,7 @@ public class UserCourtAccessAdminService {
             uca.setActive(true);
             uca.setGrantedByUserId(actorUserId);
             uca.setGrantedAt(Instant.now());
+            UserActionLog.action("granted court access (court #{}) to user #{}", court.getId(), userId);
             return toDto(uca);
         }
         UserCourtAccess saved = courtAccessRepo.save(UserCourtAccess.builder()
@@ -83,6 +85,7 @@ public class UserCourtAccessAdminService {
                 .grantedAt(Instant.now())
                 .active(true)
                 .build());
+        UserActionLog.action("granted court access (court #{}) to user #{}", court.getId(), userId);
         return toDto(saved);
     }
 
@@ -106,6 +109,7 @@ public class UserCourtAccessAdminService {
         uca.setActive(false);
         uca.setGrantedByUserId(actorUserId);
         uca.setGrantedAt(Instant.now());
+        UserActionLog.action("revoked court access (court #{}) from user #{}", uca.getCourtId(), userId);
     }
 
     private Set<Long> computeAllowedBranches(Long targetUserId, AuthorizationContext actor) {

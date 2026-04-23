@@ -17,6 +17,7 @@ import sy.gov.sla.access.domain.MembershipType;
 import sy.gov.sla.common.exception.BadRequestException;
 import sy.gov.sla.common.exception.ForbiddenException;
 import sy.gov.sla.common.exception.NotFoundException;
+import sy.gov.sla.common.logging.UserActionLog;
 import sy.gov.sla.litigationregistration.api.*;
 import sy.gov.sla.litigationregistration.domain.*;
 import sy.gov.sla.litigationregistration.infrastructure.CaseStageRepository;
@@ -94,6 +95,10 @@ public class LitigationCaseService {
                 lc.getId(), stage.getId(), lc.getCreatedBranchId(),
                 lc.getCreatedDepartmentId(), lc.getCreatedCourtId(),
                 actorUserId, null, now));
+
+        UserActionLog.action("created case #{} — court={}, basis={}/{}, owner={}",
+                lc.getId(), lc.getCreatedCourtId(), lc.getOriginalBasisNumber(), lc.getBasisYear(),
+                lc.getCurrentOwnerUserId());
 
         return toDto(lc, List.of(stage));
     }
@@ -249,6 +254,7 @@ public class LitigationCaseService {
         }
 
         lc.setUpdatedAt(Instant.now());
+        UserActionLog.action("updated basic data of case #{}", caseId);
         return toDto(lc, stageRepo.findByLitigationCaseId(caseId));
     }
 
@@ -287,6 +293,8 @@ public class LitigationCaseService {
 
         events.publishEvent(new LawyerAssignedEvent(
                 lc.getId(), stage.getId(), req.lawyerUserId(), actorUserId, now));
+
+        UserActionLog.action("assigned lawyer (user #{}) to case #{}", req.lawyerUserId(), caseId);
 
         return toDto(lc, stageRepo.findByLitigationCaseId(caseId));
     }

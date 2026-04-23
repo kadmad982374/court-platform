@@ -7,6 +7,7 @@ import sy.gov.sla.access.application.AuthorizationContext.DepartmentMembership;
 import sy.gov.sla.access.domain.*;
 import sy.gov.sla.access.infrastructure.*;
 import sy.gov.sla.common.exception.ForbiddenException;
+import sy.gov.sla.common.logging.UserActionLog;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -90,6 +91,8 @@ public class AuthorizationService {
     public void requireCanManageCourtAccess(AuthorizationContext actorCtx,
                                             Long targetBranchId, Long targetDepartmentId) {
         if (!canManageCourtAccess(actorCtx, targetBranchId, targetDepartmentId)) {
+            UserActionLog.denied("tried to manage court access in branch={} dept={} — reason=out_of_scope",
+                    targetBranchId, targetDepartmentId);
             throw new ForbiddenException("Not allowed to manage court access for this user");
         }
     }
@@ -113,6 +116,8 @@ public class AuthorizationService {
     public void requireCanManageDelegations(AuthorizationContext actorCtx,
                                             Long targetBranchId, Long targetDepartmentId) {
         if (!actorCtx.isSectionHeadOf(targetBranchId, targetDepartmentId)) {
+            UserActionLog.denied("tried to manage delegations in branch={} dept={} — reason=not_section_head",
+                    targetBranchId, targetDepartmentId);
             throw new ForbiddenException("Only the department's section head can manage delegations");
         }
     }
@@ -170,6 +175,8 @@ public class AuthorizationService {
     public void requireReadAccessToCase(AuthorizationContext ctx, Long branchId,
                                         Long departmentId, Long ownerUserId) {
         if (!canReadCase(ctx, branchId, departmentId, ownerUserId)) {
+            UserActionLog.denied("tried to read case in branch={} dept={} — reason=out_of_scope",
+                    branchId, departmentId);
             throw new ForbiddenException("Case is outside actor read scope");
         }
     }
@@ -197,6 +204,8 @@ public class AuthorizationService {
         if (canReadCase(ctx, stageBranchId, stageDepartmentId, ownerUserId)) return;
         if (caseCreatedBranchId != null && caseCreatedDepartmentId != null
                 && canReadCase(ctx, caseCreatedBranchId, caseCreatedDepartmentId, ownerUserId)) return;
+        UserActionLog.denied("tried to read stage in branch={} dept={} — reason=out_of_scope",
+                stageBranchId, stageDepartmentId);
         throw new ForbiddenException("Stage is outside actor read scope");
     }
 
@@ -209,6 +218,8 @@ public class AuthorizationService {
         if (ctx.isSectionHeadOf(branchId, departmentId)) return;
         if (ctx.isAdminClerkOf(branchId, departmentId)
                 && hasDelegatedPermission(ctx.userId(), requiredDelegationForClerk)) return;
+        UserActionLog.denied("tried to manage case in branch={} dept={} — reason=missing_permission ({})",
+                branchId, departmentId, requiredDelegationForClerk);
         throw new ForbiddenException("Not allowed to manage cases in this department");
     }
 
@@ -226,11 +237,16 @@ public class AuthorizationService {
      */
     public void requireCaseOwnership(AuthorizationContext ctx, Long caseId) {
         if (caseOwnershipPort == null) {
+            UserActionLog.denied("tried to own case #{} — reason=ownership_port_unavailable", caseId);
             throw new ForbiddenException("Case ownership port not available");
         }
         Long owner = caseOwnershipPort.findCurrentOwner(caseId)
-                .orElseThrow(() -> new ForbiddenException("Case has no owner"));
+                .orElseThrow(() -> {
+                    UserActionLog.denied("tried to own case #{} — reason=no_owner", caseId);
+                    return new ForbiddenException("Case has no owner");
+                });
         if (!owner.equals(ctx.userId())) {
+            UserActionLog.denied("tried to own case #{} — reason=not_assigned_owner", caseId);
             throw new ForbiddenException("Case ownership rule not satisfied");
         }
     }

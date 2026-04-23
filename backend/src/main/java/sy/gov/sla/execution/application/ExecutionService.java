@@ -16,6 +16,7 @@ import sy.gov.sla.common.exception.BadRequestException;
 import sy.gov.sla.common.exception.ConflictException;
 import sy.gov.sla.common.exception.ForbiddenException;
 import sy.gov.sla.common.exception.NotFoundException;
+import sy.gov.sla.common.logging.UserActionLog;
 import sy.gov.sla.execution.api.AddExecutionStepRequest;
 import sy.gov.sla.execution.api.ExecutionFileDto;
 import sy.gov.sla.execution.api.ExecutionStepDto;
@@ -128,6 +129,8 @@ public class ExecutionService {
         events.publishEvent(new CasePromotedToExecutionEvent(
                 res.caseId(), res.sourceStageId(), ef.getId(), actorUserId, now));
 
+        UserActionLog.action("promoted case #{} to execution — execution file #{}", res.caseId(), ef.getId());
+
         return toDto(ef);
     }
 
@@ -227,6 +230,9 @@ public class ExecutionService {
 
         events.publishEvent(new ExecutionStepAddedEvent(
                 ef.getId(), step.getId(), step.getStepType(), actorUserId, now));
+
+        UserActionLog.action("added execution step to file #{} — type={}, date={}",
+                ef.getId(), step.getStepType(), step.getStepDate());
 
         return toStepDto(step);
     }

@@ -12,6 +12,7 @@ import sy.gov.sla.access.infrastructure.UserDelegatedPermissionRepository;
 import sy.gov.sla.access.infrastructure.UserDepartmentMembershipRepository;
 import sy.gov.sla.common.exception.ForbiddenException;
 import sy.gov.sla.common.exception.NotFoundException;
+import sy.gov.sla.common.logging.UserActionLog;
 import sy.gov.sla.identity.api.AddDelegatedPermissionRequest;
 import sy.gov.sla.identity.api.UpdateDelegatedPermissionRequest;
 import sy.gov.sla.identity.infrastructure.UserRepository;
@@ -62,6 +63,11 @@ public class UserDelegationAdminService {
                     .grantedAt(Instant.now())
                     .build());
         }
+        if (p.isGranted()) {
+            UserActionLog.action("granted delegation '{}' to user #{}", p.getPermissionCode(), userId);
+        } else {
+            UserActionLog.action("revoked delegation '{}' from user #{}", p.getPermissionCode(), userId);
+        }
         return toDto(p);
     }
 
@@ -78,6 +84,11 @@ public class UserDelegationAdminService {
         p.setGranted(req.granted());
         p.setGrantedByUserId(actorUserId);
         p.setGrantedAt(Instant.now());
+        if (p.isGranted()) {
+            UserActionLog.action("granted delegation '{}' to user #{}", p.getPermissionCode(), userId);
+        } else {
+            UserActionLog.action("revoked delegation '{}' from user #{}", p.getPermissionCode(), userId);
+        }
         return toDto(p);
     }
 

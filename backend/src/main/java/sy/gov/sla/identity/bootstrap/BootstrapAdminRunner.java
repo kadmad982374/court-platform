@@ -6,6 +6,7 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import sy.gov.sla.access.domain.RoleType;
+import sy.gov.sla.common.logging.UserActionLog;
 import sy.gov.sla.identity.application.AuthService;
 import sy.gov.sla.identity.infrastructure.UserRepository;
 
@@ -36,6 +37,8 @@ public class BootstrapAdminRunner {
                     props.initialPassword(), null, null);
             authService.assignRole(id, RoleType.CENTRAL_SUPERVISOR);
             log.warn("Bootstrap CENTRAL_SUPERVISOR created: username='{}' (CHANGE PASSWORD!)", props.username());
+            UserActionLog.system("bootstrap admin '{}' created (id #{}) — MUST change password on first login",
+                    props.username(), id);
         };
     }
 }

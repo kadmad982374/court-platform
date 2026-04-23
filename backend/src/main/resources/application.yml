@@ -55,4 +55,9 @@ springdoc:
 logging:
   level:
     sy.gov.sla: INFO
+    sy.gov.sla.USER_ACTION: INFO
+  pattern:
+    # Compact pattern with MDC user info so every line shows who is acting.
+    # UserActionLog messages also self-identify the user, so this is complementary.
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [user=%X{username:-anon}] %logger{24} - %msg%n"
 
