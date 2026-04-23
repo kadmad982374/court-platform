@@ -1,0 +1,5 @@
+# Playwright E2E artifacts (screenshots, videos, traces, HTML reports)
+.artifacts/
+playwright-report/
+test-results/
+

@@ -1,0 +1,46 @@
+﻿
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.3.4)
+
+2026-04-19T14:36:52.625+02:00  INFO 36564 --- [state-litigation-backend] [           main] sy.gov.sla.SlaApplication                : Starting SlaApplication v0.1.0-SNAPSHOT using Java 21.0.2 with PID 36564 (C:\Users\kadri\Desktop\Ø¨Ø±Ù†Ø§Ù…Ø¬ Ù…Ø­Ø§Ù…ÙŠ\backend\target\state-litigation-backend.jar started by kadri in C:\Users\kadri\Desktop\Ø¨Ø±Ù†Ø§Ù…Ø¬ Ù…Ø­Ø§Ù…ÙŠ\backend)
+2026-04-19T14:36:52.628+02:00  INFO 36564 --- [state-litigation-backend] [           main] sy.gov.sla.SlaApplication                : No active profile set, falling back to 1 default profile: "default"
+2026-04-19T14:36:53.673+02:00  INFO 36564 --- [state-litigation-backend] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-04-19T14:36:53.790+02:00  INFO 36564 --- [state-litigation-backend] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 107 ms. Found 26 JPA repository interfaces.
+2026-04-19T14:36:54.672+02:00  INFO 36564 --- [state-litigation-backend] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-04-19T14:36:54.688+02:00  INFO 36564 --- [state-litigation-backend] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-04-19T14:36:54.688+02:00  INFO 36564 --- [state-litigation-backend] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.30]
+2026-04-19T14:36:54.739+02:00  INFO 36564 --- [state-litigation-backend] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-04-19T14:36:54.741+02:00  INFO 36564 --- [state-litigation-backend] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2053 ms
+2026-04-19T14:36:55.089+02:00  INFO 36564 --- [state-litigation-backend] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-04-19T14:36:55.324+02:00  INFO 36564 --- [state-litigation-backend] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@7608a838
+2026-04-19T14:36:55.326+02:00  INFO 36564 --- [state-litigation-backend] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-04-19T14:36:55.372+02:00  INFO 36564 --- [state-litigation-backend] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:postgresql://localhost:5432/sla (PostgreSQL 16.13)
+2026-04-19T14:36:55.465+02:00  INFO 36564 --- [state-litigation-backend] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 22 migrations (execution time 00:00.051s)
+2026-04-19T14:36:55.484+02:00  INFO 36564 --- [state-litigation-backend] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": 22
+2026-04-19T14:36:55.488+02:00  INFO 36564 --- [state-litigation-backend] [           main] o.f.core.internal.command.DbMigrate      : Schema "public" is up to date. No migration necessary.
+2026-04-19T14:36:55.622+02:00  INFO 36564 --- [state-litigation-backend] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-04-19T14:36:55.714+02:00  INFO 36564 --- [state-litigation-backend] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.5.3.Final
+2026-04-19T14:36:55.765+02:00  INFO 36564 --- [state-litigation-backend] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-04-19T14:36:56.034+02:00  INFO 36564 --- [state-litigation-backend] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-04-19T14:36:57.141+02:00  INFO 36564 --- [state-litigation-backend] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-04-19T14:36:57.215+02:00  INFO 36564 --- [state-litigation-backend] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-04-19T14:36:58.026+02:00  INFO 36564 --- [state-litigation-backend] [           main] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-04-19T14:36:58.814+02:00  WARN 36564 --- [state-litigation-backend] [           main] .s.s.UserDetailsServiceAutoConfiguration : 
+
+Using generated security password: 7a29e310-ddbd-4502-8cc4-149715203f3c
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-04-19T14:36:58.814+02:00  INFO 36564 --- [state-litigation-backend] [           main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
+2026-04-19T14:36:59.527+02:00  INFO 36564 --- [state-litigation-backend] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
+2026-04-19T14:36:59.527+02:00  INFO 36564 --- [state-litigation-backend] [           main] sy.gov.sla.SlaApplication                : Started SlaApplication in 7.352 seconds (process running for 7.932)
+2026-04-19T14:36:59.648+02:00  INFO 36564 --- [state-litigation-backend] [           main] s.g.s.i.bootstrap.BootstrapAdminRunner   : Bootstrap admin 'admin' already exists
+2026-04-19T14:37:26.296+02:00  INFO 36564 --- [state-litigation-backend] [nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-04-19T14:37:26.310+02:00  INFO 36564 --- [state-litigation-backend] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-04-19T14:37:26.310+02:00  INFO 36564 --- [state-litigation-backend] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 0 ms

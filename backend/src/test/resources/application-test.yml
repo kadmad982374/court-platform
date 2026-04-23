@@ -1,0 +1,37 @@
+spring:
+  datasource:
+    # Will be overridden by Testcontainers DynamicPropertySource in AbstractIntegrationTest.
+    url: jdbc:postgresql://localhost:55555/sla_test
+    username: sla
+    password: sla
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+sla:
+  security:
+    jwt:
+      secret: ZGV2LW9ubHktc2VjcmV0LWtleS0zMmJ5dGVzLW1pbi0xMjM0NTY3ODkw
+      access-token-ttl-minutes: 30
+      refresh-token-ttl-days: 14
+      issuer: sla-test
+  otp:
+    ttl-minutes: 10
+    length: 6
+    max-attempts: 5
+  bootstrap:
+    central-supervisor:
+      enabled: false
+      username: admin
+      full-name: admin
+      mobile-number: "0000000000"
+      initial-password: ChangeMe!2026
+  attachments:
+    base-dir: ./target/test-attachments-data
+
+logging:
+  level:
+    sy.gov.sla: INFO
+

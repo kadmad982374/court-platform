@@ -1,0 +1,58 @@
+spring:
+  application:
+    name: state-litigation-backend
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/sla}
+    username: ${DB_USER:sla}
+    password: ${DB_PASSWORD:sla}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+        format_sql: false
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-message: always
+
+sla:
+  attachments:
+    base-dir: ${SLA_ATTACHMENTS_BASE_DIR:./attachments-data}
+  security:
+    jwt:
+      # Base64-encoded HMAC-SHA256 key (>= 32 bytes). Override in production.
+      secret: ${SLA_JWT_SECRET:ZGV2LW9ubHktc2VjcmV0LWtleS0zMmJ5dGVzLW1pbi0xMjM0NTY3ODkw}
+      access-token-ttl-minutes: 30
+      refresh-token-ttl-days: 14
+      issuer: sla-backend
+  otp:
+    ttl-minutes: 10
+    length: 6
+    max-attempts: 5
+  bootstrap:
+    central-supervisor:
+      enabled: ${SLA_BOOTSTRAP_ADMIN_ENABLED:true}
+      username: admin
+      full-name: "المسؤول المركزي"
+      mobile-number: "0000000000"
+      initial-password: ${SLA_BOOTSTRAP_ADMIN_PASSWORD:ChangeMe!2026}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  level:
+    sy.gov.sla: INFO
+

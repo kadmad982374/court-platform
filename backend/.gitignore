@@ -1,0 +1,23 @@
+# Build output
+target/
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Local env files with secrets
+.env
+.env.local
+
+# Runtime attachment uploads (mounted as volume in Docker)
+attachments-data/
+
+# Log files
+*.log
+*.err.log
+

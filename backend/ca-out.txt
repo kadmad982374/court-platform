@@ -1,0 +1,2 @@
+﻿{"id":6,"userId":1,"courtId":7,"grantedByUserId":1,"grantedAt":"2026-04-19T13:02:42.298200700Z","active":true}
+HTTP=201

@@ -1,0 +1,42 @@
+package sy.gov.sla.identity.bootstrap;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import sy.gov.sla.access.domain.RoleType;
+import sy.gov.sla.identity.application.AuthService;
+import sy.gov.sla.identity.infrastructure.UserRepository;
+
+/**
+ * يُنشئ مستخدم CENTRAL_SUPERVISOR ابتدائيًا إن لم يكن موجودًا، لتمكين تسجيل دخول أولي.
+ * مرجع: D-018 (مضاف في PROJECT_ASSUMPTIONS_AND_DECISIONS).
+ */
+@Configuration
+@RequiredArgsConstructor
+@Slf4j
+public class BootstrapAdminRunner {
+
+    @Bean
+    public ApplicationRunner bootstrapAdminApplicationRunner(BootstrapAdminProperties props,
+                                                             UserRepository userRepository,
+                                                             AuthService authService) {
+        return args -> {
+            if (!props.enabled()) {
+                log.info("Bootstrap admin disabled");
+                return;
+            }
+            if (userRepository.findByUsername(props.username()).isPresent()) {
+                log.info("Bootstrap admin '{}' already exists", props.username());
+                return;
+            }
+            Long id = authService.createUser(
+                    props.username(), props.fullName(), props.mobileNumber(),
+                    props.initialPassword(), null, null);
+            authService.assignRole(id, RoleType.CENTRAL_SUPERVISOR);
+            log.warn("Bootstrap CENTRAL_SUPERVISOR created: username='{}' (CHANGE PASSWORD!)", props.username());
+        };
+    }
+}
+

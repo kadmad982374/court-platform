@@ -1,0 +1,21 @@
+node_modules
+dist
+dist-ssr
+.vite
+*.local
+.env
+.env.*.local
+coverage
+.idea
+.vscode
+*.log
+
+# Playwright artifacts
+e2e/.artifacts/
+e2e/test-results/
+playwright-report/
+test-results/
+
+# TypeScript build info
+*.tsbuildinfo
+
