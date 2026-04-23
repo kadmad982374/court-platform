@@ -1,6 +1,7 @@
 package sy.gov.sla.identity.application;
 
 import lombok.RequiredArgsConstructor;
+import org.slf4j.MDC;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -67,7 +68,17 @@ public class AuthService {
         }
         user.setLastLoginAt(Instant.now());
         TokenPairResponse tokens = issueTokens(user);
-        UserActionLog.action("signed in");
+        // Populate MDC so this one log line shows the real username instead of "Anonymous".
+        // MDC is thread-local and will be cleared by JwtAuthenticationFilter on later requests
+        // (this call is on the login endpoint where the filter hadn't set it yet).
+        try {
+            MDC.put("username", user.getUsername());
+            MDC.put("userId", String.valueOf(user.getId()));
+            UserActionLog.action("signed in");
+        } finally {
+            MDC.remove("username");
+            MDC.remove("userId");
+        }
         return tokens;
     }
 

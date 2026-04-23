@@ -182,6 +182,26 @@ public class AuthorizationService {
     }
 
     /**
+     * Case-read check that honors the ex-lawyer fallback (D-021, blueprint §9.1).
+     * <p>Use this overload whenever the caller has a {@code caseId} — it allows a
+     * {@code STATE_LAWYER} who was (or still is) the assigned lawyer of ANY stage
+     * of the case, even if the case has since been reassigned to another lawyer.
+     * This keeps previous-phase read access working for the original FI lawyer
+     * after the case is promoted to appeal or transferred.
+     */
+    public void requireReadAccessToCase(AuthorizationContext ctx, Long branchId,
+                                        Long departmentId, Long ownerUserId, Long caseId) {
+        if (canReadCase(ctx, branchId, departmentId, ownerUserId)) return;
+        if (ctx.isStateLawyer() && caseId != null && caseOwnershipPort != null
+                && caseOwnershipPort.isAssignedLawyerOfAnyStage(caseId, ctx.userId())) {
+            return;
+        }
+        UserActionLog.denied("tried to read case in branch={} dept={} — reason=out_of_scope",
+                branchId, departmentId);
+        throw new ForbiddenException("Case is outside actor read scope");
+    }
+
+    /**
      * Read-access check for a stage that belongs to a case. Mirrors
      * {@link #requireReadAccessToCase} but ORs two scopes:
      *   - the stage's own (branchId, departmentId), e.g. APPEAL after promotion;

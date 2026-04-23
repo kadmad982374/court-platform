@@ -16,6 +16,15 @@ public interface CaseOwnershipPort {
     /** الفرع/القسم اللذان أُنشئت فيهما الدعوى — للتحقق من النطاق. */
     Optional<CaseScope> findCaseScope(Long caseId);
 
+    /**
+     * هل كان المستخدم هذا محاميًا مُسنَدًا إلى أي مرحلة من مراحل الدعوى
+     * (حاضرة أو سابقة/مؤرشفة)؟
+     * <p>Used by {@code AuthorizationService.canReadCase} to preserve read
+     * access for an ex-owner lawyer after his stage is promoted / reassigned
+     * (blueprint §9.1 — previous phases remain readable; D-021 read-scope fallback).
+     */
+    boolean isAssignedLawyerOfAnyStage(Long caseId, Long userId);
+
     record CaseScope(Long branchId, Long departmentId, Long courtId, Long currentOwnerUserId) {}
 }
 

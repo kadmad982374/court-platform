@@ -15,6 +15,7 @@ import java.util.Optional;
 public class CaseOwnershipAdapter implements CaseOwnershipPort {
 
     private final LitigationCaseRepository repo;
+    private final CaseStageRepository stageRepo;
 
     @Override
     public Optional<Long> findCurrentOwner(Long caseId) {
@@ -26,6 +27,13 @@ public class CaseOwnershipAdapter implements CaseOwnershipPort {
         return repo.findById(caseId)
                 .map(c -> new CaseScope(c.getCreatedBranchId(), c.getCreatedDepartmentId(),
                         c.getCreatedCourtId(), c.getCurrentOwnerUserId()));
+    }
+
+    @Override
+    public boolean isAssignedLawyerOfAnyStage(Long caseId, Long userId) {
+        if (caseId == null || userId == null) return false;
+        return stageRepo.findByLitigationCaseId(caseId).stream()
+                .anyMatch(s -> userId.equals(s.getAssignedLawyerUserId()));
     }
 }
 

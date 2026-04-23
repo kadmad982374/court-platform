@@ -101,7 +101,8 @@ public class ReminderService {
                 .orElseThrow(() -> new NotFoundException("Case not found: " + caseId));
         AuthorizationContext ctx = authorizationService.loadContext(actorUserId);
         authorizationService.requireReadAccessToCase(ctx,
-                lc.getCreatedBranchId(), lc.getCreatedDepartmentId(), lc.getCurrentOwnerUserId());
+                lc.getCreatedBranchId(), lc.getCreatedDepartmentId(), lc.getCurrentOwnerUserId(),
+                lc.getId());
         return lc;
     }
 

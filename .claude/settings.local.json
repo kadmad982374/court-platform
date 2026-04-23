@@ -20,7 +20,12 @@
       "Read(//c/Users/FAD/**)",
       "Bash(ssh *)",
       "Bash(scp -i ~/.ssh-deploy/fadi_ed25519 -o UserKnownHostsFile=~/.ssh-deploy/known_hosts -o BatchMode=yes \"C:/Users/FAD/IdeaProjects/lawyer/court-platform/docker-compose.test.yml\" \"C:/Users/FAD/IdeaProjects/lawyer/court-platform/scripts/setup-test-server.sh\" fadi@178.104.171.3:~/)",
-      "Bash(scp *)"
+      "Bash(scp *)",
+      "Bash(curl -sS -o /dev/null -w \"https://test.kubetrust.com/           HTTP %{http_code}  tls=%{ssl_verify_result}\\\\n\" https://test.kubetrust.com/)",
+      "Bash(curl -sS -o /dev/null -w \"https://test.kubetrust.com/api/v1/cases \\(no auth\\) HTTP %{http_code}\\\\n\" https://test.kubetrust.com/api/v1/cases)",
+      "Bash(curl -sS -o /dev/null -w \"wrong URL \\(was 500 in :02\\)            HTTP %{http_code}\\\\n\" -X POST https://test.kubetrust.com/api/v1/reminders)",
+      "Bash(curl -sS -o /dev/null -w \"wrong method \\(was 500 in :02\\)         HTTP %{http_code}\\\\n\" -X DELETE https://test.kubetrust.com/api/v1/cases)",
+      "Bash(curl -sS -X POST https://test.kubetrust.com/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"admin\",\"password\":\"ChangeMe!2026\"}')"
     ]
   }
 }
