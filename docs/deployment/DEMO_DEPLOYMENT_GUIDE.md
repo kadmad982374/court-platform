@@ -52,14 +52,18 @@ DEMO_PORT=80
 # Linux / Mac
 bash scripts/demo-up.sh
 
-# Windows (PowerShell / CMD)
+# Windows (PowerShell)
+$env:DOCKER_BUILDKIT=0; docker compose -p sla-demo -f docker-compose.demo.yml --env-file .env.demo up -d --build
+
+# Windows (CMD)
 scripts\demo-up.bat
 
-# Or directly
-docker compose -f docker-compose.demo.yml --env-file .env.demo up -d --build
+# Or directly (Linux/Mac)
+DOCKER_BUILDKIT=0 docker compose -p sla-demo -f docker-compose.demo.yml --env-file .env.demo up -d --build
 ```
 
-First run takes ~3–5 minutes (Maven build + npm build inside Docker).
+> **Note:** The `-p sla-demo` flag sets an explicit project name.  
+> `DOCKER_BUILDKIT=0` is required when the project folder path contains non-ASCII characters (e.g. Arabic directory name). On a Linux server with an ASCII path this flag is not needed but does not hurt.
 
 ---
 
@@ -224,5 +228,6 @@ Browser
 | Port 80 already in use | Set `DEMO_PORT=8080` in `.env.demo` |
 | Slow first build | Normal — Maven downloads dependencies (~2–3 min) |
 | OTP code for password reset | Check backend logs: `docker compose logs backend \| grep OTP` |
+
 
 

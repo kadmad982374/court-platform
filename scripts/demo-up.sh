@@ -16,7 +16,7 @@ if [ ! -f ".env.demo" ]; then
 fi
 
 echo "==> Building and starting demo stack..."
-docker compose -f docker-compose.demo.yml --env-file .env.demo up -d --build
+DOCKER_BUILDKIT=0 docker compose -p sla-demo -f docker-compose.demo.yml --env-file .env.demo up -d --build
 
 echo ""
 echo "==> Demo stack is starting."
@@ -30,4 +30,5 @@ echo "    lawyer_fi_dam    — STATE_LAWYER"
 echo "    viewer           — READ_ONLY_SUPERVISOR"
 echo ""
 echo "    See docs/deployment/DEMO_DEPLOYMENT_GUIDE.md for all credentials."
+
 

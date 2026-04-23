@@ -12,7 +12,8 @@ echo "==> Pulling latest code..."
 git pull
 
 echo "==> Rebuilding images and restarting services..."
-docker compose -f docker-compose.demo.yml --env-file .env.demo up -d --build
+DOCKER_BUILDKIT=0 docker compose -p sla-demo -f docker-compose.demo.yml --env-file .env.demo up -d --build
 
 echo "==> Update complete."
+
 

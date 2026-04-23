@@ -185,6 +185,11 @@ public class ExecutionService {
         ExecutionFile ef = fileRepo.findById(executionFileId)
                 .orElseThrow(() -> new NotFoundException("Execution file not found: " + executionFileId));
         AuthorizationContext ctx = authorizationService.loadContext(actorUserId);
+        requireFileReadAccess(ef, ctx);
+        return toDto(ef);
+    }
+
+    private void requireFileReadAccess(ExecutionFile ef, AuthorizationContext ctx) {
         ExecutionScope scope = ExecutionScope.from(ctx);
         if (scope.matches(ef.getBranchId(), ef.getDepartmentId(), ef.getAssignedUserId())) return;
         var caseInfo = caseStagePort.findCaseWithCurrentStage(ef.getLitigationCaseId()).orElse(null);
@@ -195,10 +200,9 @@ public class ExecutionService {
 
     // ========== Steps: add (append-only) + list ==========
 
-        if (!scope.matches(ef.getBranchId(), ef.getDepartmentId(), ef.getAssignedUserId())) {
-            throw new ForbiddenException("Execution file is outside actor read scope");
-        }
-        return toDto(ef);
+    public ExecutionStepDto addStep(Long executionFileId, AddExecutionStepRequest req, Long actorUserId) {
+        ExecutionFile ef = fileRepo.findById(executionFileId)
+                .orElseThrow(() -> new NotFoundException("Execution file not found: " + executionFileId));
         //  - assigned_user_id == actor (المحامي/الموظف المُسنَد للملف).
         AuthorizationContext ctx = authorizationService.loadContext(actorUserId);
         boolean assignedActor = ef.getAssignedUserId() != null
@@ -250,10 +254,7 @@ public class ExecutionService {
 
     // ========== Mapping ==========
 
-        ExecutionScope scope = ExecutionScope.from(ctx);
-        if (!scope.matches(ef.getBranchId(), ef.getDepartmentId(), ef.getAssignedUserId())) {
-            throw new ForbiddenException("Execution file is outside actor read scope");
-        }
+    private ExecutionFileDto toDto(ExecutionFile ef) {
         return new ExecutionFileDto(
                 ef.getId(), ef.getLitigationCaseId(), ef.getSourceStageId(),
                 ef.getEnforcingEntityName(), ef.getExecutedAgainstName(),

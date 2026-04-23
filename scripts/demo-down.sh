@@ -8,6 +8,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 echo "==> Stopping demo stack (data volumes preserved)..."
-docker compose -f docker-compose.demo.yml down
+docker compose -p sla-demo -f docker-compose.demo.yml down
 echo "Done."
+
 

@@ -150,8 +150,7 @@ public class AttachmentService {
                 StageInfo s = caseStagePort.find(scopeId)
                         .orElseThrow(() -> new NotFoundException("Stage not found: " + scopeId));
                 AuthorizationContext ctx = authorizationService.loadContext(actorUserId);
-                authorizationService.requireReadAccessToStage(ctx,
-                authorizationService.requireReadAccessToCase(ctx, s.branchId(), s.departmentId(),
+                authorizationService.requireReadAccessToCase(ctx, s.branchId(), s.departmentId(), s.currentOwnerUserId());
             }
             case EXECUTION_FILE -> executionService.getFile(scopeId, actorUserId);
             case EXECUTION_STEP -> executionService.getFileForStep(scopeId, actorUserId);
