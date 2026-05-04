@@ -1,0 +1,45 @@
+# Build output
+target/
+*.jar
+!**/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Tests (image runs the packaged JAR; tests are CI-only)
+src/test/
+
+# Local runtime data
+attachments-data/
+logs/
+*.log
+
+# Loose dev artifacts (commonly accumulated when running curl scripts locally)
+*.tmp
+attach-*.txt
+ca-out.txt
+ca.json
+courts.txt
+cu.json
+err*.txt
+errgrep.txt
+login.json
+r.txt
+reprod.txt
+status.txt
+test-out.txt
+
+# Docker meta
+Dockerfile
+.dockerignore
+
+# OS
+.DS_Store
+Thumbs.db

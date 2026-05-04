@@ -1,0 +1,41 @@
+# Build output
+node_modules/
+dist/
+build/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Test artifacts
+coverage/
+playwright-report/
+test-results/
+e2e/.artifacts/
+test-out.txt
+
+# Compiled config (vite/vitest emit .d.ts/.js next to .ts when tsc is run)
+vite.config.d.ts
+vite.config.js
+vitest.config.d.ts
+vitest.config.js
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Logs / OS
+*.log
+.DS_Store
+Thumbs.db
+
+# Docker meta
+Dockerfile
+.dockerignore
