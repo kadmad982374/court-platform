@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "refresh_tokens",
@@ -19,6 +20,12 @@ public class RefreshToken {
 
     @Column(name = "token_hash", nullable = false, length = 128)
     private String tokenHash;
+
+    /** P1-01: family identifier shared across the whole rotation chain.
+     *  When a revoked token is replayed, every RT with the same family_id
+     *  is revoked — the attacker loses every session derived from the leak. */
+    @Column(name = "family_id", nullable = false)
+    private UUID familyId;
 
     @Column(name = "issued_at", nullable = false)
     private Instant issuedAt;

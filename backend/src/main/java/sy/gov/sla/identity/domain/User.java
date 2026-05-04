@@ -47,10 +47,32 @@ public class User {
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
 
+    /** P1-06: count of consecutive failed login attempts. Reset to 0 on
+     *  successful login. Crossing the threshold sets {@link #lockedUntil}. */
+    @Column(name = "failed_login_count", nullable = false)
+    private int failedLoginCount;
+
+    /** P1-06: timestamp at which the lockout expires. NULL = not locked.
+     *  AuthService.login refuses requests while {@code Instant.now()} is
+     *  before this value. */
+    @Column(name = "locked_until")
+    private Instant lockedUntil;
+
+    /** P1-06: most recent failed-login timestamp; used to roll the
+     *  failed-attempt window. */
+    @Column(name = "last_failed_login_at")
+    private Instant lastFailedLoginAt;
+
+    /** D-049: when TRUE, the user MUST change their password before any
+     *  authenticated action proceeds. Cleared by /auth/change-password and
+     *  by /auth/reset-password. Set TRUE for admin-created users. */
+    @Column(name = "must_change_password", nullable = false)
+    private boolean mustChangePassword;
+
     /** Optimistic-lock counter. Hibernate increments on every UPDATE.
      *  Concurrent updates on the same row throw OptimisticLockException —
      *  prevents lost updates on `is_active`, password resets, last_login_at,
-     *  and the upcoming P1-06 failed-login counters. */
+     *  and the P1-06 failed-login counters. */
     @Version
     @Column(name = "version", nullable = false)
     private Long version;

@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.Authentication;
@@ -40,7 +41,7 @@ class JwtAuthenticationFilterTest {
     @BeforeEach
     void setUp() {
         JwtProperties props = new JwtProperties(VALID_SECRET_B64, 30, 14, "sla-test");
-        jwtService = new JwtService(props);
+        jwtService = new JwtService(props, new MockEnvironment());
         filter = new JwtAuthenticationFilter(jwtService);
         SecurityContextHolder.clearContext();
         MDC.clear();

@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import sy.gov.sla.identity.application.AuthService;
+import sy.gov.sla.security.SecurityUtils;
 
 @RestController
 @RequiredArgsConstructor
@@ -35,6 +36,16 @@ public class AuthController {
     @PostMapping("/reset-password")
     public void resetPassword(@Valid @RequestBody ResetPasswordRequest req) {
         authService.resetPassword(req);
+    }
+
+    /**
+     * D-049 — Authenticated user changes their own password.
+     * Successful change clears mustChangePassword and revokes all active refresh
+     * tokens; the caller must sign in again.
+     */
+    @PostMapping("/change-password")
+    public void changePassword(@Valid @RequestBody ChangePasswordRequest req) {
+        authService.changePassword(SecurityUtils.currentUserOrThrow().userId(), req);
     }
 }
 

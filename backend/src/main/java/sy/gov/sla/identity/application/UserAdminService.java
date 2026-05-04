@@ -111,6 +111,10 @@ public class UserAdminService {
                 .defaultBranchId(req.defaultBranchId())
                 .defaultDepartmentId(req.defaultDepartmentId())
                 .createdAt(Instant.now())
+                // D-049: admin-provisioned users must change the temp password
+                // before they keep using the system (the flag is tracked here;
+                // frontend enforcement lands in a later PR).
+                .mustChangePassword(true)
                 .build();
         Long newId = userRepository.save(u).getId();
         UserActionLog.action("created user '{}' (id #{}) — roles={}", req.username(), newId, List.of());
