@@ -59,6 +59,24 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
+# PR-5: Spring Boot Actuator — only health endpoints exposed; sensitive details hidden.
+# Liveness probe = the JVM is up; Readiness probe = JVM up + DB reachable.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db
+
 logging:
   level:
     sy.gov.sla: INFO
