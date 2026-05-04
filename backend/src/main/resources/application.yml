@@ -45,6 +45,11 @@ sla:
       full-name: "المسؤول المركزي"
       mobile-number: "0000000000"
       initial-password: ${SLA_BOOTSTRAP_ADMIN_PASSWORD:ChangeMe!2026}
+  # P8b-01: re-applies V20–V23 dev seeds at boot, after admin is created.
+  # Disable in production (SLA_DEV_SEED_ENABLED=false) — dev users would otherwise
+  # be auto-recreated even if you wipe them by hand.
+  dev-seed:
+    enabled: ${SLA_DEV_SEED_ENABLED:true}
 
 springdoc:
   swagger-ui:

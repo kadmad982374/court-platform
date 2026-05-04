@@ -69,5 +69,11 @@ public class ExecutionFile {
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    /** Optimistic-lock counter — prevents lost updates on status (OPEN→CLOSED)
+     *  and assignedUserId from racing concurrent writes. */
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 }
 

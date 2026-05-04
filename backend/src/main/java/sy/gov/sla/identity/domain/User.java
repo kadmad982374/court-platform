@@ -46,5 +46,13 @@ public class User {
 
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
+
+    /** Optimistic-lock counter. Hibernate increments on every UPDATE.
+     *  Concurrent updates on the same row throw OptimisticLockException —
+     *  prevents lost updates on `is_active`, password resets, last_login_at,
+     *  and the upcoming P1-06 failed-login counters. */
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 }
 

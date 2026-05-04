@@ -27,6 +27,8 @@ import sy.gov.sla.organization.application.OrganizationService;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -171,8 +173,17 @@ public class LitigationCaseService {
                 ? Page.empty(pageable)
                 : caseRepo.findAll(spec, pageable);
 
+        // P3-01: batch-load all stages for the page in ONE query, group by case.
+        // Was N+1 (one findByLitigationCaseId per case). New shape:
+        //   1 query for cases, 1 query for all their stages, in-memory groupBy.
+        List<Long> caseIds = p.getContent().stream().map(LitigationCase::getId).toList();
+        Map<Long, List<CaseStage>> stagesByCase = caseIds.isEmpty()
+                ? Map.of()
+                : stageRepo.findByLitigationCaseIdIn(caseIds).stream()
+                    .collect(Collectors.groupingBy(CaseStage::getLitigationCaseId));
+
         List<LitigationCaseDto> content = p.getContent().stream()
-                .map(lc -> toDto(lc, stageRepo.findByLitigationCaseId(lc.getId())))
+                .map(lc -> toDto(lc, stagesByCase.getOrDefault(lc.getId(), List.of())))
                 .toList();
         return new PageResponse<>(content, p.getNumber(), p.getSize(), p.getTotalElements(), p.getTotalPages());
     }

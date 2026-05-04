@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import sy.gov.sla.access.domain.RoleType;
 import sy.gov.sla.common.logging.UserActionLog;
 import sy.gov.sla.identity.application.AuthService;
@@ -19,7 +20,10 @@ import sy.gov.sla.identity.infrastructure.UserRepository;
 @Slf4j
 public class BootstrapAdminRunner {
 
+    /** P8b-01: explicit ordering — admin must be created BEFORE the dev-seed
+     *  runner attempts to insert dev users that reference admin's password hash. */
     @Bean
+    @Order(10)
     public ApplicationRunner bootstrapAdminApplicationRunner(BootstrapAdminProperties props,
                                                              UserRepository userRepository,
                                                              AuthService authService) {

@@ -12,5 +12,9 @@ public interface UserRoleRepository extends JpaRepository<UserRole, Long> {
     /** Mini-Phase B — used by user_role_admin only. */
     void deleteByUserIdAndRoleId(Long userId, Long roleId);
     List<UserRole> findByRoleId(Long roleId);
+
+    /** P3-02: bulk loader so {@code UserAdminService.list} can fetch role
+     *  assignments for a whole page in one query instead of one-per-user. */
+    List<UserRole> findByUserIdIn(List<Long> userIds);
 }
 

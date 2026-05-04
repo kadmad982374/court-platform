@@ -76,5 +76,12 @@ public class CaseStage {
 
     @Column(name = "ended_at")
     private Instant endedAt;
+
+    /** Optimistic-lock counter — prevents lost updates on stageStatus
+     *  (e.g. concurrent promote-to-appeal + hearing-entry), assignedLawyerUserId,
+     *  readOnly. */
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 }
 
