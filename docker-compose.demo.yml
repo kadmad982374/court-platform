@@ -41,6 +41,9 @@ services:
       SLA_JWT_SECRET: ${SLA_JWT_SECRET:?SLA_JWT_SECRET is required}
       SLA_BOOTSTRAP_ADMIN_ENABLED: "true"
       SLA_BOOTSTRAP_ADMIN_PASSWORD: ${SLA_BOOTSTRAP_ADMIN_PASSWORD:-ChangeMe!2026}
+      # P8b-01 / D-050: opt-in to the V20–V23 dev-user seed runner.
+      # Demo only — must NOT be set in production (default is false).
+      SLA_DEV_SEED_ENABLED: "true"
       SLA_ATTACHMENTS_BASE_DIR: /app/attachments-data
       SERVER_PORT: 8080
     volumes:

@@ -46,6 +46,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Mini-Phase B — User administration service.
@@ -213,8 +214,29 @@ public class UserAdminService {
         };
 
         Page<User> p = userRepository.findAll(spec, pageable);
+
+        // P3-02: bulk-load roles for the entire page in TWO queries instead of
+        // 2N (one roleRepository.findAll() + one userRoleRepository.findByUserId
+        // per user). Shape now:
+        //   1× findAll(spec)  for users
+        //   1× roleRepository.findAll()  for the role-id → RoleType mapping
+        //   1× userRoleRepository.findByUserIdIn(userIds)  for memberships
+        List<Long> userIds = p.getContent().stream().map(User::getId).toList();
+        Map<Long, RoleType> rolesById = userIds.isEmpty()
+                ? Map.of()
+                : roleRepository.findAll().stream()
+                    .collect(Collectors.toMap(Role::getId, Role::getType));
+        Map<Long, List<RoleType>> rolesByUser = userIds.isEmpty()
+                ? Map.of()
+                : userRoleRepository.findByUserIdIn(userIds).stream()
+                    .collect(Collectors.groupingBy(
+                        UserRole::getUserId,
+                        Collectors.mapping(
+                            ur -> rolesById.get(ur.getRoleId()),
+                            Collectors.filtering(Objects::nonNull, Collectors.toList()))));
+
         List<UserSummaryDto> content = p.getContent().stream()
-                .map(this::toSummaryDto)
+                .map(u -> toSummaryDto(u, rolesByUser.getOrDefault(u.getId(), List.of())))
                 .toList();
         return new PageResponse<>(content, p.getNumber(), p.getSize(),
                 p.getTotalElements(), p.getTotalPages());
@@ -245,10 +267,16 @@ public class UserAdminService {
     }
 
     private UserSummaryDto toSummaryDto(User u) {
+        return toSummaryDto(u, rolesOf(u.getId()));
+    }
+
+    /** P3-02: pre-resolved roles overload — used by {@link #list} to avoid the
+     *  N+1 inside {@code rolesOf} for each row. */
+    private UserSummaryDto toSummaryDto(User u, List<RoleType> roles) {
         return new UserSummaryDto(
                 u.getId(), u.getUsername(), u.getFullName(), u.isActive(),
                 u.getDefaultBranchId(), u.getDefaultDepartmentId(),
-                rolesOf(u.getId()));
+                roles);
     }
 
     private UserAdminDto toAdminDto(User u) {

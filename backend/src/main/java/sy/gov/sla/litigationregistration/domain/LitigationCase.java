@@ -77,5 +77,11 @@ public class LitigationCase {
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    /** Optimistic-lock counter — prevents lost updates on currentOwnerUserId
+     *  (concurrent assignLawyer), lifecycleStatus, currentStageId. */
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 }
 

@@ -45,6 +45,13 @@ sla:
       full-name: "المسؤول المركزي"
       mobile-number: "0000000000"
       initial-password: ${SLA_BOOTSTRAP_ADMIN_PASSWORD:ChangeMe!2026}
+  # P8b-01: re-applies V20–V23 dev seeds at boot, after admin is created.
+  # SECURE-BY-DEFAULT: disabled unless explicitly turned on. Demo deployments
+  # set SLA_DEV_SEED_ENABLED=true (see docker-compose.demo.yml). Production
+  # MUST leave this false — otherwise the V20 SQL would create dev users
+  # (head_dam, section_fi_dam, …) with the admin's password hash.
+  dev-seed:
+    enabled: ${SLA_DEV_SEED_ENABLED:false}
 
 springdoc:
   swagger-ui:

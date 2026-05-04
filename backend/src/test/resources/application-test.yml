@@ -28,6 +28,8 @@ sla:
       full-name: admin
       mobile-number: "0000000000"
       initial-password: ChangeMe!2026
+  dev-seed:
+    enabled: false
   attachments:
     base-dir: ./target/test-attachments-data
 
