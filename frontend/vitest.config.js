@@ -25,14 +25,15 @@ export default defineConfig({
                 'src/vite-env.d.ts',
                 'src/**/*.d.ts',
             ],
-            // PR-1 baseline: thresholds intentionally 0 so the first CI run measures
-            // the real number without failing. PR-2 ratchets these up to 60 once we
-            // know the baseline. Tracked under findings.md P6-03.
+            // PR-2 ratchet: thresholds set ~5pp below the measured baseline (lines
+            // 40.15 / branches 80.97 / functions 70.81 / statements 40.15) so CI
+            // catches real regressions without false alarms on minor fluctuations.
+            // PR-3+ will ratchet again as untested pages get covered.
             thresholds: {
-                lines: 0,
-                branches: 0,
-                functions: 0,
-                statements: 0,
+                lines: 38,
+                branches: 70,
+                functions: 60,
+                statements: 38,
             },
         },
     },
