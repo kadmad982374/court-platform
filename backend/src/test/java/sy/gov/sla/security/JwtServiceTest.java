@@ -6,6 +6,7 @@ import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.env.MockEnvironment;
 
 import javax.crypto.SecretKey;
 import java.time.Instant;
@@ -34,7 +35,7 @@ class JwtServiceTest {
 
     private JwtService newService(String secret, String issuer, long accessMin, long refreshDays) {
         JwtProperties props = new JwtProperties(secret, accessMin, refreshDays, issuer);
-        return new JwtService(props);
+        return new JwtService(props, new MockEnvironment());
     }
 
     @Nested
@@ -116,6 +117,8 @@ class JwtServiceTest {
         @Test
         void already_expired_token_returns_null() {
             // Build a token whose `exp` is already in the past, signed with the same key.
+            // PR-4: parser tolerates 30s skew; the token's exp is 60s in the past, so
+            // it is still rejected as expired.
             byte[] secretBytes = Base64.getDecoder().decode(VALID_SECRET_B64);
             SecretKey key = Keys.hmacShaKeyFor(secretBytes);
             String expiredToken = Jwts.builder()
@@ -130,6 +133,43 @@ class JwtServiceTest {
 
             JwtService svc = newService();
             assertThat(svc.parse(expiredToken)).isNull();
+        }
+
+        /** P1-04: issuer mismatch is rejected. */
+        @Test
+        void token_with_wrong_issuer_returns_null() {
+            byte[] secretBytes = Base64.getDecoder().decode(VALID_SECRET_B64);
+            SecretKey key = Keys.hmacShaKeyFor(secretBytes);
+            String tokenWithBadIssuer = Jwts.builder()
+                    .issuer("evil-issuer")
+                    .subject("1")
+                    .claim("username", "x")
+                    .claim("roles", List.of())
+                    .issuedAt(Date.from(Instant.now()))
+                    .expiration(Date.from(Instant.now().plusSeconds(300)))
+                    .signWith(key, Jwts.SIG.HS256)
+                    .compact();
+
+            JwtService svc = newService();   // expects issuer "sla-test"
+            assertThat(svc.parse(tokenWithBadIssuer)).isNull();
+        }
+
+        /** P1-04: a token with no issuer at all is rejected. */
+        @Test
+        void token_with_missing_issuer_returns_null() {
+            byte[] secretBytes = Base64.getDecoder().decode(VALID_SECRET_B64);
+            SecretKey key = Keys.hmacShaKeyFor(secretBytes);
+            String tokenNoIssuer = Jwts.builder()
+                    .subject("1")
+                    .claim("username", "x")
+                    .claim("roles", List.of())
+                    .issuedAt(Date.from(Instant.now()))
+                    .expiration(Date.from(Instant.now().plusSeconds(300)))
+                    .signWith(key, Jwts.SIG.HS256)
+                    .compact();
+
+            JwtService svc = newService();
+            assertThat(svc.parse(tokenNoIssuer)).isNull();
         }
     }
 

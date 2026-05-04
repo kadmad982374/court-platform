@@ -26,15 +26,25 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class AuthService {
+
+    /** P1-06: lockout policy parameters. */
+    private static final int LOCKOUT_THRESHOLD = 5;
+    private static final Duration LOCKOUT_WINDOW = Duration.ofMinutes(15);
+    private static final Duration LOCKOUT_DURATION = Duration.ofMinutes(30);
+
+    /** P1-08: bcrypt-priced filler used when forgotPassword sees an unknown mobile. */
+    private static final String DUMMY_PWD_FOR_TIMING = "constant-time-dummy-password";
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -49,28 +59,50 @@ public class AuthService {
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
+    // ==========================================================
+    // LOGIN  (P1-06 lockout + P1-08-style timing-mask)
+    // ==========================================================
     public TokenPairResponse login(LoginRequest req) {
-        User user = userRepository.findByUsername(req.username())
-                .orElseThrow(() -> {
-                    UserActionLog.system("login failed — reason={}, username={}", "INVALID_CREDENTIALS", req.username());
-                    return new AppException(org.springframework.http.HttpStatus.UNAUTHORIZED,
-                            "INVALID_CREDENTIALS", "Invalid credentials");
-                });
+        Optional<User> userOpt = userRepository.findByUsername(req.username());
+
+        if (userOpt.isEmpty()) {
+            // Constant-time-ish dummy hash so attackers can't time-distinguish
+            // "user exists with bad pwd" from "user does not exist".
+            passwordEncoder.matches(req.password(), passwordEncoder.encode(DUMMY_PWD_FOR_TIMING));
+            UserActionLog.system("login failed — reason={}, username={}", "INVALID_CREDENTIALS", req.username());
+            throw new AppException(org.springframework.http.HttpStatus.UNAUTHORIZED,
+                    "INVALID_CREDENTIALS", "Invalid credentials");
+        }
+        User user = userOpt.get();
+
+        // ── P1-06: hard lockout window check ─────────────────────
+        Instant now = Instant.now();
+        if (user.getLockedUntil() != null && now.isBefore(user.getLockedUntil())) {
+            UserActionLog.system("login refused — reason=ACCOUNT_LOCKED, username={}, until={}",
+                    req.username(), user.getLockedUntil());
+            throw new AppException(org.springframework.http.HttpStatus.UNAUTHORIZED,
+                    "ACCOUNT_LOCKED", "Account is temporarily locked. Try again later.");
+        }
+
         if (!user.isActive() || user.isLocked()) {
             UserActionLog.system("login failed — reason={}, username={}", "ACCOUNT_DISABLED", req.username());
             throw new AppException(org.springframework.http.HttpStatus.UNAUTHORIZED,
                     "ACCOUNT_DISABLED", "Account disabled or locked");
         }
+
         if (!passwordEncoder.matches(req.password(), user.getPasswordHash())) {
+            registerFailedLogin(user, now);
             UserActionLog.system("login failed — reason={}, username={}", "INVALID_CREDENTIALS", req.username());
             throw new AppException(org.springframework.http.HttpStatus.UNAUTHORIZED,
                     "INVALID_CREDENTIALS", "Invalid credentials");
         }
-        user.setLastLoginAt(Instant.now());
-        TokenPairResponse tokens = issueTokens(user);
-        // Populate MDC so this one log line shows the real username instead of "Anonymous".
-        // MDC is thread-local and will be cleared by JwtAuthenticationFilter on later requests
-        // (this call is on the login endpoint where the filter hadn't set it yet).
+
+        // ── Successful login: reset counters, issue tokens ──────
+        user.setFailedLoginCount(0);
+        user.setLockedUntil(null);
+        user.setLastLoginAt(now);
+        TokenPairResponse tokens = issueTokensNewFamily(user);
+
         try {
             MDC.put("username", user.getUsername());
             MDC.put("userId", String.valueOf(user.getId()));
@@ -82,6 +114,25 @@ public class AuthService {
         return tokens;
     }
 
+    /** P1-06: increment failed count with rolling window; lock when threshold crossed. */
+    private void registerFailedLogin(User user, Instant now) {
+        // Roll the window: if last failure was > LOCKOUT_WINDOW ago, reset count.
+        Instant lastFail = user.getLastFailedLoginAt();
+        if (lastFail == null || lastFail.isBefore(now.minus(LOCKOUT_WINDOW))) {
+            user.setFailedLoginCount(0);
+        }
+        user.setFailedLoginCount(user.getFailedLoginCount() + 1);
+        user.setLastFailedLoginAt(now);
+        if (user.getFailedLoginCount() >= LOCKOUT_THRESHOLD) {
+            user.setLockedUntil(now.plus(LOCKOUT_DURATION));
+            UserActionLog.system("account locked — username={}, until={}",
+                    user.getUsername(), user.getLockedUntil());
+        }
+    }
+
+    // ==========================================================
+    // REFRESH  (P1-01 family revocation + P1-02 active/locked recheck)
+    // ==========================================================
     public TokenPairResponse refresh(RefreshTokenRequest req) {
         String hash = sha256(req.refreshToken());
         RefreshToken rt = refreshTokenRepository.findByTokenHash(hash)
@@ -90,25 +141,58 @@ public class AuthService {
                     return new AppException(org.springframework.http.HttpStatus.UNAUTHORIZED,
                             "INVALID_REFRESH_TOKEN", "Invalid refresh token");
                 });
-        if (rt.isRevoked() || rt.getExpiresAt().isBefore(Instant.now())) {
-            UserActionLog.system("refresh rejected — reason={}", "INVALID_REFRESH_TOKEN");
+
+        // P1-01: replay of a revoked RT → revoke the entire family.
+        // This is the "leaked refresh token" detection path. If the legitimate user has
+        // already rotated and an attacker replays the leaked predecessor, every active
+        // session in that chain is invalidated — the attacker cannot keep using rotations.
+        if (rt.isRevoked()) {
+            int killed = revokeFamily(rt.getFamilyId(), rt.getUserId());
+            UserActionLog.system("refresh rejected — reason=REVOKED_REPLAY, family={}, family_kills={}",
+                    rt.getFamilyId(), killed);
             throw new AppException(org.springframework.http.HttpStatus.UNAUTHORIZED,
                     "INVALID_REFRESH_TOKEN", "Invalid refresh token");
         }
-        // Rotate: revoke old, issue new
+        if (rt.getExpiresAt().isBefore(Instant.now())) {
+            UserActionLog.system("refresh rejected — reason=EXPIRED");
+            throw new AppException(org.springframework.http.HttpStatus.UNAUTHORIZED,
+                    "INVALID_REFRESH_TOKEN", "Invalid refresh token");
+        }
+
+        User user = userRepository.findById(rt.getUserId())
+                .orElseThrow(() -> new AppException(org.springframework.http.HttpStatus.UNAUTHORIZED,
+                        "INVALID_REFRESH_TOKEN", "Invalid refresh token"));
+
+        // P1-02: deactivated/locked accounts cannot rotate sessions.
+        if (!user.isActive() || user.isLocked()
+                || (user.getLockedUntil() != null && Instant.now().isBefore(user.getLockedUntil()))) {
+            UserActionLog.system("refresh refused — reason=ACCOUNT_DISABLED, user_id={}", user.getId());
+            throw new AppException(org.springframework.http.HttpStatus.UNAUTHORIZED,
+                    "ACCOUNT_DISABLED", "Account disabled or locked");
+        }
+
+        // Rotate: revoke this RT, issue new RT in the SAME family.
         rt.setRevoked(true);
         rt.setRevokedAt(Instant.now());
-        User user = userRepository.findById(rt.getUserId())
-                .orElseThrow(() -> {
-                    UserActionLog.system("refresh rejected — reason={}", "INVALID_REFRESH_TOKEN");
-                    return new AppException(org.springframework.http.HttpStatus.UNAUTHORIZED,
-                            "INVALID_REFRESH_TOKEN", "Invalid refresh token");
-                });
-        TokenPairResponse tokens = issueTokens(user);
+        TokenPairResponse tokens = issueTokensInFamily(user, rt.getFamilyId());
         UserActionLog.action("refreshed session");
         return tokens;
     }
 
+    /** P1-01: revoke every non-revoked RT sharing a family_id. Returns how many were killed. */
+    private int revokeFamily(UUID familyId, Long userIdForLog) {
+        List<RefreshToken> alive = refreshTokenRepository.findByFamilyIdAndRevokedFalse(familyId);
+        Instant now = Instant.now();
+        for (RefreshToken r : alive) {
+            r.setRevoked(true);
+            r.setRevokedAt(now);
+        }
+        return alive.size();
+    }
+
+    // ==========================================================
+    // LOGOUT
+    // ==========================================================
     public void logout(LogoutRequest req) {
         String hash = sha256(req.refreshToken());
         refreshTokenRepository.findByTokenHash(hash).ifPresent(rt -> {
@@ -118,9 +202,14 @@ public class AuthService {
         });
     }
 
+    // ==========================================================
+    // FORGOT PASSWORD  (P1-07 OTP scrub + P1-08 timing mask)
+    // ==========================================================
     public void forgotPassword(ForgotPasswordRequest req) {
-        // لا نكشف وجود/عدم وجود الرقم. ننشئ كود فقط إن وُجد.
-        userRepository.findByMobileNumber(req.mobileNumber()).ifPresent(user -> {
+        Optional<User> userOpt = userRepository.findByMobileNumber(req.mobileNumber());
+
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
             String code = generateNumericCode(otpProperties.length());
             String hash = sha256(code);
             Instant now = Instant.now();
@@ -133,10 +222,19 @@ public class AuthService {
                     .consumed(false)
                     .build());
             otpDispatcher.dispatch(req.mobileNumber(), code);
-            UserActionLog.system("password reset code issued to mobile={}", req.mobileNumber());
-        });
+        } else {
+            // P1-08: dummy bcrypt to mask user-existence timing oracle.
+            passwordEncoder.encode(DUMMY_PWD_FOR_TIMING);
+        }
+
+        // P1-07: do NOT log the mobile number or whether the user existed.
+        // This log line is identical for both branches.
+        UserActionLog.system("password-reset requested");
     }
 
+    // ==========================================================
+    // RESET PASSWORD  (P1-10 — repo method, no findAll())
+    // ==========================================================
     public void resetPassword(ResetPasswordRequest req) {
         User user = userRepository.findByMobileNumber(req.mobileNumber())
                 .orElseThrow(() -> new BadRequestException("INVALID_OTP", "Invalid code or mobile"));
@@ -151,19 +249,64 @@ public class AuthService {
             c.setAttempts(c.getAttempts() + 1);
         }
         if (match == null) {
-            UserActionLog.system("password reset failed — reason=INVALID_OTP, mobile={}", req.mobileNumber());
+            UserActionLog.system("password reset failed — reason=INVALID_OTP, user_id={}", user.getId());
             throw new BadRequestException("INVALID_OTP", "Invalid code or mobile");
         }
         match.setConsumed(true);
         user.setPasswordHash(passwordEncoder.encode(req.newPassword()));
-        // إبطال جميع refresh tokens عند تغيير كلمة المرور.
-        refreshTokenRepository.findAll().stream()
-                .filter(rt -> rt.getUserId().equals(user.getId()) && !rt.isRevoked())
-                .forEach(rt -> { rt.setRevoked(true); rt.setRevokedAt(Instant.now()); });
+        // D-049: a successful reset clears the must-change flag.
+        user.setMustChangePassword(false);
+        // P1-06: a successful reset wipes the lockout state.
+        user.setFailedLoginCount(0);
+        user.setLockedUntil(null);
+
+        // P1-10: targeted query instead of findAll() + filter.
+        Instant revokedAt = Instant.now();
+        for (RefreshToken rt : refreshTokenRepository.findByUserIdAndRevokedFalse(user.getId())) {
+            rt.setRevoked(true);
+            rt.setRevokedAt(revokedAt);
+        }
         UserActionLog.system("password reset completed for user id={}", user.getId());
     }
 
-    private TokenPairResponse issueTokens(User user) {
+    // ==========================================================
+    // CHANGE PASSWORD  (D-049 — authenticated)
+    // ==========================================================
+    public void changePassword(Long userId, ChangePasswordRequest req) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(org.springframework.http.HttpStatus.UNAUTHORIZED,
+                        "UNAUTHENTICATED", "Authentication required"));
+        if (!passwordEncoder.matches(req.oldPassword(), user.getPasswordHash())) {
+            UserActionLog.system("change-password failed — reason=BAD_OLD_PASSWORD, user_id={}", userId);
+            throw new BadRequestException("BAD_OLD_PASSWORD", "Current password is incorrect");
+        }
+        if (req.newPassword() == null || req.newPassword().length() < 8) {
+            throw new BadRequestException("WEAK_PASSWORD",
+                    "New password must be at least 8 characters");
+        }
+        if (passwordEncoder.matches(req.newPassword(), user.getPasswordHash())) {
+            throw new BadRequestException("WEAK_PASSWORD",
+                    "New password must be different from current");
+        }
+        user.setPasswordHash(passwordEncoder.encode(req.newPassword()));
+        user.setMustChangePassword(false);
+        // Revoke all active refresh-token sessions; user will sign back in fresh.
+        Instant now = Instant.now();
+        for (RefreshToken rt : refreshTokenRepository.findByUserIdAndRevokedFalse(userId)) {
+            rt.setRevoked(true);
+            rt.setRevokedAt(now);
+        }
+        UserActionLog.action("changed password");
+    }
+
+    // ==========================================================
+    // Internal: token issuance (with family tracking)
+    // ==========================================================
+    private TokenPairResponse issueTokensNewFamily(User user) {
+        return issueTokensInFamily(user, UUID.randomUUID());
+    }
+
+    private TokenPairResponse issueTokensInFamily(User user, UUID familyId) {
         List<String> roleNames = userRoleRepository.findByUserId(user.getId()).stream()
                 .map(UserRole::getRoleId)
                 .map(roleRepository::findById)
@@ -177,6 +320,7 @@ public class AuthService {
         RefreshToken rt = RefreshToken.builder()
                 .userId(user.getId())
                 .tokenHash(sha256(refreshPlain))
+                .familyId(familyId)
                 .issuedAt(now)
                 .expiresAt(now.plusSeconds(jwtProperties.refreshTokenTtlDays() * 86400L))
                 .revoked(false)
@@ -218,6 +362,8 @@ public class AuthService {
                 .defaultBranchId(defaultBranchId)
                 .defaultDepartmentId(defaultDepartmentId)
                 .createdAt(Instant.now())
+                // D-049: admin-created users must change password on first login.
+                .mustChangePassword(true)
                 .build();
         return userRepository.save(u).getId();
     }
@@ -236,4 +382,3 @@ public class AuthService {
     @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE)
     private @interface Roles { String value(); }
 }
-
