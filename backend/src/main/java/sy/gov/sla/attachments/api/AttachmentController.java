@@ -52,6 +52,13 @@ public class AttachmentController {
     }
 
     // ===== Download =====
+    /**
+     * P2-03: every download is served as opaque {@code application/octet-stream}
+     *        with {@code Content-Disposition: attachment} and the browser's
+     *        sniff-and-render heuristics suppressed via {@code X-Content-Type-Options: nosniff}.
+     *        Together this means a stored file (even a legitimate PNG) cannot be
+     *        rendered inline by a victim's browser if the URL is shared.
+     */
     @GetMapping("/attachments/{id}/download")
     public ResponseEntity<InputStreamResource> download(@PathVariable("id") Long id) {
         Long actor = SecurityUtils.currentUserOrThrow().userId();
@@ -60,7 +67,9 @@ public class AttachmentController {
         HttpHeaders headers = new HttpHeaders();
         headers.add(HttpHeaders.CONTENT_DISPOSITION,
                 "attachment; filename*=UTF-8''" + encoded);
-        headers.setContentType(MediaType.parseMediaType(h.contentType()));
+        headers.add("X-Content-Type-Options", "nosniff");
+        // Always octet-stream — never trust the stored type for what the browser does with it.
+        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
         return ResponseEntity.ok()
                 .headers(headers)
                 .contentLength(h.size())

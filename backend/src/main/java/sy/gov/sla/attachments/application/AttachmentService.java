@@ -122,16 +122,36 @@ public class AttachmentService {
         }
         try {
             byte[] bytes = file.getBytes();
+
+            // P2-01 + P2-02: ignore the client-supplied content-type. Sniff the
+            // real type from the magic bytes and reject anything outside the
+            // allow-list (PDF/DOCX/XLSX/PNG/JPEG).
+            AttachmentTypeSniffer.SafeType sniffed = AttachmentTypeSniffer.sniff(
+                    bytes, file.getOriginalFilename());
+            if (sniffed == null) {
+                UserActionLog.failed(
+                        "rejected upload — reason=DISALLOWED_FILE_TYPE filename={} declaredType={}",
+                        file.getOriginalFilename(), file.getContentType());
+                throw new BadRequestException("DISALLOWED_FILE_TYPE",
+                        "Only PDF, DOCX, XLSX, PNG, and JPEG files are accepted");
+            }
+
+            // P2-04: rebuild the filename from the SNIFFED type. The attacker-
+            // supplied extension is discarded, so a renamed binary can't end up
+            // on disk wearing a misleading extension.
+            String safeName = AttachmentTypeSniffer.safeFilename(file.getOriginalFilename(), sniffed);
+
             String checksum = sha256(bytes);
-            String key = storage.store(new java.io.ByteArrayInputStream(bytes),
-                    file.getOriginalFilename() == null ? "file" : file.getOriginalFilename());
-            String contentType = file.getContentType();
-            if (contentType == null || contentType.isBlank()) contentType = "application/octet-stream";
+            String key = storage.store(new java.io.ByteArrayInputStream(bytes), safeName);
+
             Attachment a = Attachment.builder()
                     .attachmentScopeType(type)
                     .scopeId(scopeId)
-                    .originalFilename(file.getOriginalFilename() == null ? "file" : file.getOriginalFilename())
-                    .contentType(contentType)
+                    // Preserve the user's intent in originalFilename for UI display,
+                    // but with the safe extension forced — same value used on disk.
+                    .originalFilename(safeName)
+                    // Always store the SNIFFED type, never the client-supplied one.
+                    .contentType(sniffed.mimeType)
                     .fileSizeBytes(bytes.length)
                     .storageKey(key)
                     .uploadedByUserId(actorUserId)
@@ -140,8 +160,8 @@ public class AttachmentService {
                     .active(true)
                     .build();
             a = repo.save(a);
-            UserActionLog.action("uploaded attachment #{} ({} bytes) to scope={} scopeId={}",
-                    a.getId(), a.getFileSizeBytes(), type, scopeId);
+            UserActionLog.action("uploaded attachment #{} ({} bytes, type={}) to scope={} scopeId={}",
+                    a.getId(), a.getFileSizeBytes(), sniffed.mimeType, type, scopeId);
             return toDto(a);
         } catch (IOException e) {
             throw new IllegalStateException("Cannot store uploaded attachment", e);

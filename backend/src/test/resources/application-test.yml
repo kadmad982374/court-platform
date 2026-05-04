@@ -17,6 +17,10 @@ sla:
       access-token-ttl-minutes: 30
       refresh-token-ttl-days: 14
       issuer: sla-test
+    # PR-5: disable per-IP rate-limit during ITs — MockMvc reuses 127.0.0.1, so
+    # multi-test JVM runs would otherwise trip the bucket. Production keeps it on.
+    rate-limit:
+      enabled: false
   otp:
     ttl-minutes: 10
     length: 6

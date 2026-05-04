@@ -46,6 +46,21 @@ class AttachmentsRemindersNotificationsIT extends AbstractIntegrationTest {
     Long deptId, courtId, otherDeptId;
     String headTok, lawTok, otherHeadTok;
 
+    /**
+     * PR-5: PR-5 added magic-byte sniffing on uploads (P2-01/P2-02). Tests must now
+     * present payloads whose first bytes match a real allow-listed type. Smallest
+     * possible "valid PDF" prefix is {@code %PDF-1.7}; the remaining bytes are
+     * arbitrary because the sniffer only inspects the prefix.
+     */
+    private static byte[] fakePdf(String trailer) {
+        byte[] header = new byte[]{0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x37}; // "%PDF-1.7"
+        byte[] tail = trailer.getBytes();
+        byte[] out = new byte[header.length + tail.length];
+        System.arraycopy(header, 0, out, 0, header.length);
+        System.arraycopy(tail, 0, out, header.length, tail.length);
+        return out;
+    }
+
     @BeforeEach
     void seed() throws Exception {
         try {
@@ -156,7 +171,7 @@ class AttachmentsRemindersNotificationsIT extends AbstractIntegrationTest {
     void test1and2_uploadAndListStageAttachment() throws Exception {
         long stageId = createCase("AT-1-" + System.nanoTime(), false)[1];
         MockMultipartFile file = new MockMultipartFile("file", "report.pdf",
-                "application/pdf", "PDF-CONTENT".getBytes());
+                "application/pdf", fakePdf("PDF-CONTENT"));
 
         var up = mvc.perform(multipart("/api/v1/stages/" + stageId + "/attachments")
                 .file(file).header("Authorization", "Bearer " + headTok))
@@ -194,7 +209,7 @@ class AttachmentsRemindersNotificationsIT extends AbstractIntegrationTest {
     void test4and5_uploadAndListExecutionFileAttachment() throws Exception {
         long efId = createPromoteToExecution("AT-3-" + System.nanoTime());
         MockMultipartFile file = new MockMultipartFile("file", "ef.pdf",
-                "application/pdf", new byte[]{1, 2, 3});
+                "application/pdf", fakePdf("EF-CONTENT"));
 
         var up = mvc.perform(multipart("/api/v1/execution-files/" + efId + "/attachments")
                 .file(file).header("Authorization", "Bearer " + headTok))
@@ -211,19 +226,23 @@ class AttachmentsRemindersNotificationsIT extends AbstractIntegrationTest {
     @Test
     void test6and7_downloadAttachmentInScopeAndRejectedOutOfScope() throws Exception {
         long stageId = createCase("AT-4-" + System.nanoTime(), false)[1];
-        byte[] payload = "DOWNLOAD-ME".getBytes();
-        MockMultipartFile file = new MockMultipartFile("file", "d.bin",
-                "application/octet-stream", payload);
+        // PR-5: sniffer rewrites the safe filename to `<base>.pdf` and the
+        // bytes-on-disk include the magic prefix; download returns them verbatim.
+        byte[] payload = fakePdf("DOWNLOAD-ME");
+        MockMultipartFile file = new MockMultipartFile("file", "d.pdf",
+                "application/pdf", payload);
         var up = mvc.perform(multipart("/api/v1/stages/" + stageId + "/attachments")
                 .file(file).header("Authorization", "Bearer " + headTok))
                 .andExpect(status().isOk()).andReturn();
         long attId = om.readTree(up.getResponse().getContentAsString()).get("id").asLong();
 
-        // داخل النطاق: 200 + bytes صحيحة
+        // داخل النطاق: 200 + bytes صحيحة + Content-Disposition بالامتداد المُعاد اشتقاقه (.pdf).
         MvcResult dl = mvc.perform(get("/api/v1/attachments/" + attId + "/download")
                 .header("Authorization", "Bearer " + headTok))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("d.bin")))
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("d.pdf")))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(header().string("Content-Type", "application/octet-stream"))
                 .andReturn();
         assertThat(dl.getResponse().getContentAsByteArray()).isEqualTo(payload);
 

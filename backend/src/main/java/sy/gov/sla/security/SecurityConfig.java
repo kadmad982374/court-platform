@@ -19,6 +19,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtFilter;
+    private final AuthRateLimitFilter authRateLimitFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -42,10 +43,16 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                "/actuator/health"
+                                // PR-5: Spring Boot Actuator health probes — public so
+                                // K8s liveness/readiness checks don't need a JWT.
+                                "/actuator/health",
+                                "/actuator/health/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
+                // PR-5: rate limit BEFORE JWT auth so brute-forcers get 429s
+                // without burning through bcrypt comparisons.
+                .addFilterBefore(authRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
