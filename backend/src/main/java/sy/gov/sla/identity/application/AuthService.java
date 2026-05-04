@@ -62,6 +62,16 @@ public class AuthService {
     // ==========================================================
     // LOGIN  (P1-06 lockout + P1-08-style timing-mask)
     // ==========================================================
+    /**
+     * P1-06 fix-up (E2E test surfaced this): the class-level {@code @Transactional}
+     * default rolls back on RuntimeException — including the AppException we
+     * throw on bad credentials. Without {@code noRollbackFor} the
+     * {@link #registerFailedLogin} increment of {@code failed_login_count} is
+     * undone every time the user gets the password wrong, so the lockout
+     * threshold is never crossed. Excluding AppException keeps the counter
+     * persistent while still failing the request with 401.
+     */
+    @Transactional(noRollbackFor = AppException.class)
     public TokenPairResponse login(LoginRequest req) {
         Optional<User> userOpt = userRepository.findByUsername(req.username());
 
@@ -133,6 +143,15 @@ public class AuthService {
     // ==========================================================
     // REFRESH  (P1-01 family revocation + P1-02 active/locked recheck)
     // ==========================================================
+    /**
+     * P1-01 fix-up (E2E test surfaced this): when {@link #revokeFamily} mutates
+     * RT rows and the surrounding method then throws AppException, the
+     * class-level {@code @Transactional} default would roll back the
+     * revocations — defeating the family-kill. {@code noRollbackFor =
+     * AppException.class} preserves the side effect: the request still fails
+     * with 401, but the family stays dead.
+     */
+    @Transactional(noRollbackFor = AppException.class)
     public TokenPairResponse refresh(RefreshTokenRequest req) {
         String hash = sha256(req.refreshToken());
         RefreshToken rt = refreshTokenRepository.findByTokenHash(hash)
