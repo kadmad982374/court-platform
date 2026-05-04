@@ -66,7 +66,9 @@ describe('AdminUserDetailPage', () => {
     });
     wrapAt('/admin/users/9999', <AdminUserDetailPage />);
     await waitFor(() => {
-      expect(screen.getByRole('alert').textContent).toMatch(/لم يُعثر/);
+      // PR-7: backend code NOT_FOUND → frontend translates via AR_ERROR_MESSAGES.
+      expect(screen.getByRole('alert').textContent)
+        .toMatch(/العنصر المطلوب غير موجود/);
     });
   });
 });

@@ -5,6 +5,7 @@ import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { Spinner } from '@/shared/ui/Spinner';
 import type { PageResponse, PublicEntityItem } from '@/shared/types/domain';
+import { extractApiErrorMessage } from '@/shared/lib/apiError';
 
 /**
  * Phase 8 — minimal read integration only.
@@ -25,7 +26,11 @@ export function PublicEntitiesPage() {
         </CardHeader>
         <CardBody>
           {q.isLoading && <Spinner className="text-brand-600" />}
-          {q.isError && <p className="text-sm text-red-600">تعذّر تحميل الجهات.</p>}
+          {q.isError && (
+            <p className="text-sm text-red-600">
+              {extractApiErrorMessage(q.error, 'تعذّر تحميل الجهات.')}
+            </p>
+          )}
           {q.data && (
             <ul className="divide-y divide-slate-100 text-sm">
               {q.data.content.map((e) => (

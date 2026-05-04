@@ -119,7 +119,11 @@ export function CaseDetailPage() {
           </CardHeader>
           <CardBody>
             {caseQ.isLoading && <Spinner className="text-brand-600" />}
-            {caseQ.isError && <p className="text-sm text-red-600">تعذّر تحميل الدعوى.</p>}
+            {caseQ.isError && (
+              <p className="text-sm text-red-600">
+                {extractApiErrorMessage(caseQ.error, 'تعذّر تحميل الدعوى.')}
+              </p>
+            )}
             {caseQ.data && (
               <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                 <Field k="رقم الأساس" v={caseQ.data.originalBasisNumber} />
@@ -195,7 +199,11 @@ export function CaseDetailPage() {
         </CardHeader>
         <CardBody>
           {stagesQ.isLoading && <Spinner className="text-brand-600" />}
-          {stagesQ.isError && <p className="text-sm text-red-600">تعذّر تحميل المراحل.</p>}
+          {stagesQ.isError && (
+            <p className="text-sm text-red-600">
+              {extractApiErrorMessage(stagesQ.error, 'تعذّر تحميل المراحل.')}
+            </p>
+          )}
           {stagesQ.data && stagesQ.data.length === 0 && (
             <p className="text-sm text-slate-500">لا توجد مراحل.</p>
           )}

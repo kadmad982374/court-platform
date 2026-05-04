@@ -54,7 +54,10 @@ describe('RolesSection', () => {
     fireEvent.change(select, { target: { value: 'BRANCH_HEAD' } });
     fireEvent.submit(screen.getByTestId('admin-roles-add-form'));
     await waitFor(() => {
-      expect(screen.getByTestId('admin-roles-error').textContent).toMatch(/ممنوع منح/);
+      // PR-7: backend returns code BRANCH_HEAD_CANNOT_GRANT_BRANCH_HEAD;
+      // frontend translates it via AR_ERROR_MESSAGES.
+      expect(screen.getByTestId('admin-roles-error').textContent)
+        .toMatch(/لا يمكن لرئيس الفرع/);
     });
   });
 });

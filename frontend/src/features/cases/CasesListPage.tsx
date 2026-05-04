@@ -9,6 +9,7 @@ import { Table, TBody, TD, TH, THead, TR } from '@/shared/ui/Table';
 import { Button } from '@/shared/ui/Button';
 import { useAuth } from '@/features/auth/AuthContext';
 import { canCreateCase } from '@/features/auth/permissions';
+import { extractApiErrorMessage } from '@/shared/lib/apiError';
 import {
   LIFECYCLE_LABEL_AR,
   PUBLIC_ENTITY_POSITION_LABEL_AR,
@@ -45,7 +46,11 @@ export function CasesListPage() {
         </CardHeader>
         <CardBody>
           {q.isLoading && <Spinner className="text-brand-600" />}
-          {q.isError && <p className="text-sm text-red-600">تعذّر تحميل الدعاوى.</p>}
+          {q.isError && (
+            <p className="text-sm text-red-600">
+              {extractApiErrorMessage(q.error, 'تعذّر تحميل الدعاوى.')}
+            </p>
+          )}
 
           {q.data && q.data.content.length === 0 && (
             <p className="text-sm text-slate-500">لا توجد دعاوى ضمن نطاقك.</p>

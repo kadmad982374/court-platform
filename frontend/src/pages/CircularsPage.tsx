@@ -9,6 +9,7 @@ import {
   type Circular,
   type PageResponse,
 } from '@/shared/types/domain';
+import { extractApiErrorMessage } from '@/shared/lib/apiError';
 
 /**
  * Phase 8 — minimal read integration only.
@@ -28,7 +29,11 @@ export function CircularsPage() {
         </CardHeader>
         <CardBody>
           {q.isLoading && <Spinner className="text-brand-600" />}
-          {q.isError && <p className="text-sm text-red-600">تعذّر تحميل التعاميم.</p>}
+          {q.isError && (
+            <p className="text-sm text-red-600">
+              {extractApiErrorMessage(q.error, 'تعذّر تحميل التعاميم.')}
+            </p>
+          )}
           {q.data && (
             <ul className="divide-y divide-slate-100 text-sm">
               {q.data.content.map((c) => (
