@@ -1,0 +1,69 @@
+# ============================================================
+# application-prod.yml — production profile (PR-6)
+# ============================================================
+# Activate with SPRING_PROFILES_ACTIVE=prod (or --spring.profiles.active=prod).
+# Inherits everything from application.yml; only the values that MUST differ in
+# production are overridden here.
+#
+# What this enforces:
+#   * server.error.include-message=never  — never leak exception messages
+#     in 5xx responses (P1-05).
+#   * BootstrapAdminRunner disabled       — no auto-creation of `admin` (P8b
+#     pre-bootstrap hardening + audit blocker #8).
+#   * DevSeedRunner disabled              — already default false; explicit here.
+#   * JwtService startup assertion        — refuses to boot when SLA_JWT_SECRET
+#     equals the shipped dev default (already enforced in JwtService — this
+#     profile makes the activation explicit so the check fires).
+#   * Quieter logs                        — INFO root, no SQL, no MDC noise.
+#
+# What this DOES NOT do (out of scope for PR-6):
+#   * TLS termination — done at nginx / load balancer.
+#   * Secrets management — values must come from env vars (Vault, K8s Secrets,
+#     AWS SM, …). The application reads only ${ENV_VAR} placeholders.
+# ============================================================
+
+server:
+  error:
+    # P1-05: opaque error responses. Stack traces / messages NEVER reach clients.
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+    include-exception: false
+
+spring:
+  jpa:
+    properties:
+      hibernate:
+        # Defence in depth — show_sql is off in prod regardless of caller config.
+        show_sql: false
+
+logging:
+  level:
+    root: INFO
+    sy.gov.sla: INFO
+    org.hibernate.SQL: WARN
+    org.springframework.web: INFO
+
+sla:
+  bootstrap:
+    central-supervisor:
+      # CRITICAL: must be false in production. The runner ignores this when
+      # admin already exists, but a fresh prod deploy with this true would
+      # create an admin/ChangeMe!2026 account by mistake.
+      enabled: false
+  dev-seed:
+    # Already default false from PR-3 fixup; explicit here so prod-mode logs
+    # show "Dev seed disabled" rather than a misleading "skipping (no admin)".
+    enabled: false
+  security:
+    rate-limit:
+      # In production the IP rate-limiter is only a fallback — nginx
+      # `limit_req_zone` (configured in PR-6 nginx.conf) is the primary edge
+      # defence. Keep the Spring filter ON so direct-to-pod traffic is still
+      # bounded, but tune limits via env vars if needed.
+      enabled: true
+    cors:
+      # P1-11: env-driven, comma-separated list. Empty by default → CORS is
+      # effectively disabled (same-origin only via the nginx proxy). Production
+      # must set SLA_CORS_ALLOWED_ORIGINS=https://app.example.org explicitly.
+      allowed-origins: ${SLA_CORS_ALLOWED_ORIGINS:}
