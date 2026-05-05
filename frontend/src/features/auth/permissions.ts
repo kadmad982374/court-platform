@@ -286,6 +286,27 @@ export function canCorrectFinalizedCase(
 }
 
 /**
+ * PR-14 (customer feedback A-1 / Q-G expansion) — visual gate for the
+ * broadcast composer. Backend re-validates scope per request.
+ *
+ * Allowed senders:
+ *  - CENTRAL_SUPERVISOR (admin) → can broadcast to ALL / BRANCH / DEPARTMENT / USERS.
+ *  - BRANCH_HEAD (any active membership of type BRANCH_HEAD) → own branch.
+ *  - SECTION_HEAD (any active membership of type SECTION_HEAD) → own department.
+ *
+ * READ_ONLY_SUPERVISOR / SPECIAL_INSPECTOR / ADMIN_CLERK / STATE_LAWYER → false.
+ */
+export function canBroadcastNotification(user: CurrentUser | null): boolean {
+  if (!user) return false;
+  if (hasRole(user, 'CENTRAL_SUPERVISOR')) return true;
+  return user.departmentMemberships.some(
+    (m) => m.active
+        && (m.membershipType === 'BRANCH_HEAD'
+         || m.membershipType === 'SECTION_HEAD'),
+  );
+}
+
+/**
  * UI sub-phase B — `/admin/users` minimal.
  *
  * Visual-only gate for the `/admin/users` route + sidebar entry.

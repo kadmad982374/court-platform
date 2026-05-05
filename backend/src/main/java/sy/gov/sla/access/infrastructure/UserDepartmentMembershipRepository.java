@@ -28,5 +28,16 @@ public interface UserDepartmentMembershipRepository extends JpaRepository<UserDe
 
     Optional<UserDepartmentMembership> findFirstByUserIdAndBranchIdAndDepartmentIdIsNullAndMembershipType(
             Long userId, Long branchId, MembershipType membershipType);
+
+    /**
+     * PR-14 (customer feedback A-1 / Q-G expansion) — broadcast recipient
+     * resolution. Branch-wide membership listing (used by ADMIN and
+     * BRANCH_HEAD broadcasts).
+     */
+    List<UserDepartmentMembership> findByBranchIdAndMembershipTypeAndActiveTrue(
+            Long branchId, MembershipType membershipType);
+
+    /** PR-14 — system-wide membership listing (used by ADMIN's ALL broadcast). */
+    List<UserDepartmentMembership> findByMembershipTypeAndActiveTrue(MembershipType membershipType);
 }
 

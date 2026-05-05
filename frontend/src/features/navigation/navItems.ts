@@ -43,6 +43,13 @@ export const NAV_ITEMS: NavItem[] = [
   // Reminders/Attachments are intentionally NOT top-level nav entries — they
   // live as sections inside their host pages (case / stage / execution file).
   { to: '/notifications',   label: 'الإشعارات',          allowedRoles: ALL_ROLES, section: 'عام' },
+  // PR-14 (customer feedback A-1 / Q-G expansion) — broadcast composer.
+  // Sidebar entry restricted by ROLE; backend re-validates membership scope.
+  // ADMIN_CLERK members never see this even though they may share a (branch,
+  // dept) with a SECTION_HEAD — only CENTRAL_SUPERVISOR / BRANCH_HEAD /
+  // SECTION_HEAD may broadcast.
+  { to: '/notifications/broadcast', label: 'إرسال إشعار',
+    allowedRoles: ['CENTRAL_SUPERVISOR', 'BRANCH_HEAD', 'SECTION_HEAD'], section: 'عام' },
 
   // ---- UI sub-phase B — `/admin/users` minimal (D-047 / D-048) ----
   // Conservative visibility: CENTRAL_SUPERVISOR only. Section-head /
