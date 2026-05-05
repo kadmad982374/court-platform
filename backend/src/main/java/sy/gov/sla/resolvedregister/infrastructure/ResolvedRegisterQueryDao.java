@@ -75,6 +75,12 @@ public class ResolvedRegisterQueryDao {
             sql.append(" AND lc.created_department_id = :departmentId");
             p.addValue("departmentId", filter.departmentId());
         }
+        // PR-10 (customer feedback C-5): section heads filter by court within
+        // their own dept; admin and branch_head can also slice by court.
+        if (filter.courtId() != null) {
+            sql.append(" AND lc.created_court_id = :courtId");
+            p.addValue("courtId", filter.courtId());
+        }
         if (filter.decisionType() != null) {
             sql.append(" AND cd.decision_type = :decisionType");
             p.addValue("decisionType", filter.decisionType());
@@ -136,7 +142,7 @@ public class ResolvedRegisterQueryDao {
     }
 
     public record QueryFilter(Integer year, Integer month, Long branchId,
-                              Long departmentId, String decisionType) {}
+                              Long departmentId, Long courtId, String decisionType) {}
 
     public record ScopeFilter(Kind kind, Set<Long> branchIds, Set<Long> branchDeptKeys, Long ownerUserId) {
         public enum Kind { ALL, BRANCHES, BRANCH_DEPT_PAIRS, OWNER_USER, NONE }

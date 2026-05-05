@@ -20,10 +20,12 @@ public class ResolvedRegisterController {
             @RequestParam(value = "month",        required = false) Integer month,
             @RequestParam(value = "branchId",     required = false) Long branchId,
             @RequestParam(value = "departmentId", required = false) Long departmentId,
+            // PR-10 (customer feedback C-5) — court filter for section_head and below.
+            @RequestParam(value = "courtId",      required = false) Long courtId,
             @RequestParam(value = "decisionType", required = false) String decisionType
     ) {
         Long actor = SecurityUtils.currentUserOrThrow().userId();
-        return service.query(year, month, branchId, departmentId, decisionType, actor);
+        return service.query(year, month, branchId, departmentId, courtId, decisionType, actor);
     }
 }
 
