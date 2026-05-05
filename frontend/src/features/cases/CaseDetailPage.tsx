@@ -18,7 +18,6 @@ import {
   canEditCaseBasicData,
   canPromoteToAppeal,
   canPromoteToExecution,
-  hasRole,
 } from '@/features/auth/permissions';
 import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { PageHeader } from '@/shared/ui/PageHeader';
@@ -111,11 +110,11 @@ export function CaseDetailPage() {
     || canPromoteToAppeal(user)
     || canPromoteToExecution(user);
 
-  // PR-8 (customer feedback A-4): reminders are personal to STATE_LAWYER
-  // (per D-037). Hide the section entirely for everyone else — admins,
-  // branch heads, section heads, and clerks should not see the
-  // "إنشاء تذكير" UI on the case page.
-  const showReminders = hasRole(user, 'STATE_LAWYER');
+  // PR-8b (customer feedback Q-G correction): the reminders section is now
+  // shown to ALL roles with case-read access. Lawyers see + author their own
+  // reminders; managers (SECTION_HEAD / BRANCH_HEAD / ADMIN_CLERK / admin)
+  // see them as read-only oversight. Per-row Done/Cancel and the Create
+  // button are gated INSIDE the section.
 
   return (
     <>
@@ -282,9 +281,9 @@ export function CaseDetailPage() {
         />
       )}
 
-      {/* Phase 10 — personal reminders on this case (D-037).
-          PR-8 (customer feedback A-4): only state lawyers see this section. */}
-      {showReminders && <RemindersSection caseId={caseId} />}
+      {/* Phase 10 — reminders on this case (D-037 + PR-8b oversight extension).
+          Lawyers see + author their own. Managers see all reminders read-only. */}
+      <RemindersSection caseId={caseId} />
     </>
   );
 }

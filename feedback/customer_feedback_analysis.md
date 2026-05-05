@@ -1,9 +1,10 @@
 # Customer Feedback Round 1 — Analysis & Plan
 
-**Status:** ⏸ Awaiting customer answers to Q-A..Q-G (sent via `feedback/questions_for_customer_ar.md`)
+**Status:** ✅ Customer answers received (`feedback/customer-answers`); PR-8 shipped; PR-8b..PR-14 pending.
 **Source feedback:** `feedback/ملاحظات على النسخة التجريبية لنظام ادارة قضايا الد_260505_003541.pdf`
+**Customer answers:** `feedback/customer-answers` (received 2026-05-05)
 **Analysis date:** 2026-05-05
-**Stack at time of analysis:** `dev` branch at `97ada1c` (PR-1..PR-7 all merged)
+**Stack at time of analysis:** `dev` branch with PR-1..PR-7 merged; PR-8 shipped on a separate branch.
 
 This document captures the full deep-analysis we did before any code was written, so we can resume
 without re-deriving anything once the customer answers.
@@ -77,19 +78,32 @@ without re-deriving anything once the customer answers.
 
 ---
 
-## 3. Open questions sent to customer (Q-A..Q-G)
+## 3. Open questions sent to customer (Q-A..Q-G) — ANSWERED
 
-Full Arabic text in `feedback/questions_for_customer_ar.md`. Summary here:
+Full Arabic text in `feedback/questions_for_customer_ar.md`. Customer answers received in `feedback/customer-answers` (2026-05-05).
 
-| # | Question | Default we proposed |
-|---|---|---|
-| **Q-A** | "Region" concept in execution — new entity or relabel of court? | (B) Relabel court |
-| **Q-B** | Dashboard chart placement | (C) Both home page + cases-page summary |
-| **Q-C** | Broadcast retention model | (A) Fan-out via existing notifications table |
-| **Q-D** | Section_head correction window | (A) Any promotion freezes data |
-| **Q-E** | Clerk in execution — total ban or default-hidden? | (B) Default hidden, delegation still possible |
-| **Q-F** | Money fields in dashboard | (A) Adjudged-amount only in v1 |
-| **Q-G** | Reminder semantics confirmation | (A) Personal-only, document it |
+| # | Question | Our default | Customer answer | Status |
+|---|---|---|---|---|
+| **Q-A** | Region concept | (B) Relabel court | **(B)** | ✅ Match |
+| **Q-B** | Dashboard placement | (C) Both | **(C)** | ✅ Match |
+| **Q-C** | Broadcast retention | (A) Notifications fan-out | **(A)** | ✅ Match |
+| **Q-D** | Correction window | (A) Any promotion freezes | **(C) Correction rights TRANSFER on promotion** to destination dept; otherwise current section head can edit basic + decision data without touching session history | ⚠️ Refinement |
+| **Q-E** | Clerk in execution | (B) Hide UI, delegation overrides | **(A) Total ban** — admin_clerk never sees step UI regardless of delegation | ⚠️ Stricter |
+| **Q-F** | Money fields | (A) Adjudged only in v1 | **(A)** | ✅ Match |
+| **Q-G** | Reminder semantics | (A) Personal-only | **(C) Hierarchy oversight + manager-initiated notifications**: BRANCH_HEAD/SECTION_HEAD can READ lawyer reminders within scope, AND can BROADCAST notifications down the hierarchy (like admin can — A-1) | ⚠️ Significant expansion |
+
+### Translation of customer's nuanced answers
+
+**Q-D (ج):** "الترقية الى اي قسم تمنع التصحيح ولكن يصبح التصحيح من صلاحية القسم الذي رقي الملف اليه سواء كان تنفيذ او استئناف او صلح. اما في حال عدم الترقية فيمكن لرئيس القسم المختص تصحيح بيانات الملف الاساسية وبيانات القرار الصادر دون المساس بمسار الجلسات السابقة"
+
+→ The CURRENT-OWNER department's section head has correction rights. After promotion, those rights transfer to the destination department's section head. Hearing log is never touched (already enforced by D-022 append-only).
+
+**Q-G (ج):**
+- Lawyers create reminders as personal sticky-notes (existing).
+- BRANCH_HEAD and SECTION_HEAD can SEE these reminders for cases in their scope (NEW — oversight read mode).
+- BRANCH_HEAD can SEND notifications to all / some / one lawyer in their branch.
+- SECTION_HEAD can SEND notifications to all / some / one lawyer in their dept.
+- Reminders ≠ notifications. Reminders are personal action notes. Notifications are manager-initiated messages.
 
 ---
 
@@ -117,21 +131,22 @@ Full Arabic text in `feedback/questions_for_customer_ar.md`. Summary here:
 
 ---
 
-## 5. Proposed PR plan (six PRs, stacked on `dev`)
+## 5. PR plan (revised after customer answers)
 
-| PR | Scope | Risk | Effort | Blocking question |
-|---|---|---|---|---|
-| **PR-8** Quick UX wins | A-4 hide reminder for non-lawyers · A-5/B-4 link resolved-register rows · B-2 hide actions panel · C-3 auto-fill promote-to-execution · C-4 wire promotion notifications | Very low | 1 day | none |
-| **PR-9** Filtered case listing per role | A-3/B-1/C-1/D-1: backend `listCases` gains `branchId`/`departmentId`/`courtId`/`q`; frontend role-aware filter UI | Low | 2 days | none |
-| **PR-10** Role-aware resolved register | B-3/C-5: hide branch/dept inputs by role; add `courtId` filter | Very low | 0.5 day | none |
-| **PR-11** Section-head decision correction | C-6: new `PATCH /api/v1/cases/{id}/decision` gated by `CORRECT_FINALIZED_CASE` AND no descendant stage | Medium | 2 days | **Q-D** |
-| **PR-12** Execution scope narrowing + region view | C-7/D-2 narrow exec to file-rows for non-execution roles · E-2/E-3 rename exec sidebar + region filter | Medium | 2 days | **Q-A, Q-E** |
-| **PR-13** Admin dashboard with chart | A-2: new `GET /api/v1/reports/case-summary` + dashboard widget with `recharts` | Medium | 2 days | **Q-B, Q-F** |
-| **PR-14** Broadcast messaging | A-1: admin compose UI + backend fan-out via existing notifications table | Medium | 2-3 days | **Q-C** |
+| PR | Status | Scope | Customer-answer adjustments |
+|---|---|---|---|
+| **PR-8** ✅ shipped | merged on its branch | A-4 hide reminder · A-5/B-4 link resolved-register rows · B-2 hide actions panel · C-3 auto-fill promote-to-execution · C-4 wire promotion notifications | A-4 needs follow-up (see PR-8b) |
+| **PR-8b** Reminder oversight read mode | ready | Backend `ReminderService.list` returns reminders for cases in actor's oversight scope when actor is BRANCH_HEAD/SECTION_HEAD. Frontend `RemindersSection` shows the section to managers as read-only (no Create button, no Done/Cancel) | NEW from Q-G |
+| **PR-9** Filtered case listing | ready | A-3/B-1/C-1/D-1: backend `listCases` gains `branchId`/`departmentId`/`courtId`/`q`; frontend role-aware filter UI | unchanged |
+| **PR-10** Role-aware resolved register | ready | B-3/C-5: hide branch/dept inputs by role; add `courtId` filter | unchanged |
+| **PR-11** Decision correction | ready | C-6: new `PATCH /api/v1/cases/{id}/decision` gated by `CORRECT_FINALIZED_CASE`. Auth check uses CURRENT stage's (branch, dept) — rights transfer on promotion per Q-D. Hearing history untouched (D-022). | **Q-D refinement applied** |
+| **PR-12** Execution scope + region | ready | C-7 narrow exec to file-rows for non-execution roles · D-2 ADMIN_CLERK never sees step UI (no delegation override) · E-2/E-3 rename exec sidebar to "Executed Files" + region filter (region = court) | **Q-E stricter, Q-A confirmed** |
+| **PR-13** Dashboard chart | ready | A-2: new `GET /api/v1/reports/case-summary` + dashboard widget with `recharts` (chart on home + summary on cases page per Q-B). Adjudged-amount totals only per Q-F. | **Q-B, Q-F confirmed** |
+| **PR-14** Multi-role broadcast | ready | A-1 + Q-G expanded: three sender roles with scope-bounded recipient pickers. ADMIN sends to all/branch/dept/user. BRANCH_HEAD sends to lawyers in own branch. SECTION_HEAD sends to lawyers in own dept. Same fan-out mechanism. | **Q-G expansion applied** |
 
-**Total: 8-12 days, 6-7 PRs.**
+**Recommended execution order:** PR-8b → PR-9 → PR-10 → PR-11 → PR-12 → PR-13 → PR-14.
 
-PR-8, PR-9, PR-10 are **unblocked** — can start immediately even before customer answers.
+**Total: ~12 days, 7 PRs. Same as original plan; work redistributed per customer answers.**
 
 ---
 
