@@ -11,10 +11,12 @@ import {
   promoteToExecution,
 } from './api';
 import { EditCaseBasicDataModal } from './EditCaseBasicDataModal';
+import { CorrectFinalizedCaseModal } from './CorrectFinalizedCaseModal';
 import { AssignLawyerSection, lawyerLabel } from './AssignLawyerSection';
 import { useAuth } from '@/features/auth/AuthContext';
 import {
   canAssignLawyerForCase,
+  canCorrectFinalizedCase,
   canEditCaseBasicData,
   canPromoteToAppeal,
   canPromoteToExecution,
@@ -60,6 +62,7 @@ export function CaseDetailPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [promoteExecOpen, setPromoteExecOpen] = useState(false);
   const [editBasicOpen, setEditBasicOpen] = useState(false);
+  const [correctOpen, setCorrectOpen] = useState(false);
 
   // Mini-Phase A (D-046) — when the user is allowed to assign a lawyer,
   // we already fetch the eligible-lawyers list inside AssignLawyerSection.
@@ -102,13 +105,21 @@ export function CaseDetailPage() {
 
   if (!Number.isFinite(caseId)) return <p className="text-sm text-red-600">معرّف غير صالح.</p>;
 
+  // PR-11 (customer feedback C-6 / Q-D): correction rights live on the CURRENT
+  // stage's (branch, dept) — they transfer on promotion. Resolve the current
+  // stage from the stages list so the permissions helper can evaluate it.
+  const currentStage =
+    (stagesQ.data ?? []).find((s) => s.id === caseQ.data?.currentStageId) ?? null;
+  const canCorrect = canCorrectFinalizedCase(user, currentStage);
+
   // PR-8 (customer feedback B-2): hide the "actions on case level" panel
-  // entirely if the current user has none of the three actions available
+  // entirely if the current user has none of the actions available
   // (so admin / branch_head no longer see an empty card).
   const showActionsCard =
     canEditCaseBasicData(user, caseQ.data ?? null)
     || canPromoteToAppeal(user)
-    || canPromoteToExecution(user);
+    || canPromoteToExecution(user)
+    || canCorrect;
 
   // PR-8b (customer feedback Q-G correction): the reminders section is now
   // shown to ALL roles with case-read access. Lawyers see + author their own
@@ -198,6 +209,14 @@ export function CaseDetailPage() {
                     ترقية إلى التنفيذ
                   </Button>
                 )}
+                {canCorrect && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => setCorrectOpen(true)}
+                  >
+                    تصحيح بيانات الدعوى المفصولة
+                  </Button>
+                )}
               </div>
             </CardBody>
           </Card>
@@ -275,9 +294,19 @@ export function CaseDetailPage() {
           open={editBasicOpen}
           onClose={() => setEditBasicOpen(false)}
           litigationCase={caseQ.data}
-          currentStage={
-            (stagesQ.data ?? []).find((s) => s.id === caseQ.data!.currentStageId) ?? null
-          }
+          currentStage={currentStage}
+        />
+      )}
+
+      {/* PR-11 (customer feedback C-6 / blueprint C-6): section-head correction
+          of finalized case + decision. Rights belong to the CURRENT stage's
+          owning section per Q-D — they transfer on promotion. */}
+      {caseQ.data && currentStage && (
+        <CorrectFinalizedCaseModal
+          open={correctOpen}
+          onClose={() => setCorrectOpen(false)}
+          litigationCase={caseQ.data}
+          currentStage={currentStage}
         />
       )}
 

@@ -62,5 +62,17 @@ public class CasesController {
         Long actor = SecurityUtils.currentUserOrThrow().userId();
         return service.assignLawyer(id, req, actor);
     }
+
+    /**
+     * PR-11 (customer feedback C-6 / blueprint C-6) — section-head correction of
+     * a finalized case. Auth uses the CURRENT stage's (branch, dept) per Q-D —
+     * correction rights transfer to the destination department on promotion.
+     */
+    @PatchMapping("/{id}/correct")
+    public LitigationCaseDto correctFinalizedCase(@PathVariable("id") Long id,
+                                                  @Valid @RequestBody CorrectFinalizedCaseRequest req) {
+        Long actor = SecurityUtils.currentUserOrThrow().userId();
+        return service.correctFinalizedCase(id, req, actor);
+    }
 }
 
