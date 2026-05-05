@@ -9,6 +9,8 @@ import type {
 export interface ListExecutionFilesQuery {
   branchId?: number;
   departmentId?: number;
+  /** PR-12 (customer feedback E-2 / Q-A): "region" filter — region = court. */
+  courtId?: number;
   status?: ExecutionFileStatus;
   year?: number;
   page?: number;

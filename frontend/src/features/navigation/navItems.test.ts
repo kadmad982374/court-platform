@@ -65,4 +65,11 @@ describe('navItems / visibleItems', () => {
     expect(it).toBeTruthy();
     expect(it!.section).toBe('عام');
   });
+
+  it('PR-12 (E-3) — "الملفات المنفّذة" entry pre-applies status=CLOSED and is grouped under "الأعمال"', () => {
+    const it = NAV_ITEMS.find((n) => n.label === 'الملفات المنفّذة');
+    expect(it).toBeTruthy();
+    expect(it!.to).toBe('/execution-files?status=CLOSED');
+    expect(it!.section).toBe('الأعمال');
+  });
 });

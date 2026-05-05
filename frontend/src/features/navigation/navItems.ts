@@ -28,6 +28,11 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/cases',             label: 'الدعاوى',     allowedRoles: ALL_ROLES, section: 'الأعمال' },
   { to: '/resolved-register', label: 'سجل الفصل',  allowedRoles: ALL_ROLES, section: 'الأعمال' },
   { to: '/execution-files',   label: 'التنفيذ',     allowedRoles: ALL_ROLES, section: 'الأعمال' },
+  // PR-12 (customer feedback E-3): "الملفات المنفّذة" — execution files whose
+  // execution is fully done (status=CLOSED). Backed by the same page; the
+  // status query-string drives the view.
+  { to: '/execution-files?status=CLOSED', label: 'الملفات المنفّذة',
+    allowedRoles: ALL_ROLES, section: 'الأعمال' },
 
   // ---- Knowledge directory (Phase 7 read-only modules, D-042) ----
   { to: '/legal-library',   label: 'المكتبة القانونية', allowedRoles: ALL_ROLES, section: 'مرجعيات' },

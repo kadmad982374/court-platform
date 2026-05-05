@@ -37,6 +37,7 @@ import sy.gov.sla.organization.domain.DepartmentType;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Orchestration للمسار التنفيذي. مرجع: D-028..D-034 (Phase 5).
@@ -142,7 +143,7 @@ public class ExecutionService {
     // ========== Read: list + get ==========
 
     @Transactional(readOnly = true)
-    public List<ExecutionFileDto> listFiles(Long branchId, Long departmentId,
+    public List<ExecutionFileDto> listFiles(Long branchId, Long departmentId, Long courtId,
                                             ExecutionFileStatus status, Integer year,
                                             int page, int size, Long actorUserId) {
         if (size <= 0) size = 20;
@@ -153,12 +154,22 @@ public class ExecutionService {
         AuthorizationContext ctx = authorizationService.loadContext(actorUserId);
         ExecutionScope scope = ExecutionScope.from(ctx);
 
+        // PR-12 (customer feedback E-2 / Q-A): "region" = court. Cross-module
+        // hop via the port (D-023) — empty result short-circuits to no rows.
+        final Set<Long> courtCaseIds = courtId == null
+                ? null
+                : caseStagePort.findCaseIdsByCourtId(courtId);
+
         Specification<ExecutionFile> spec = (root, q, cb) -> {
             List<Predicate> ands = new ArrayList<>();
             if (branchId != null)     ands.add(cb.equal(root.get("branchId"), branchId));
             if (departmentId != null) ands.add(cb.equal(root.get("departmentId"), departmentId));
             if (status != null)       ands.add(cb.equal(root.get("status"), status));
             if (year != null)         ands.add(cb.equal(root.get("executionYear"), year));
+            if (courtCaseIds != null) {
+                if (courtCaseIds.isEmpty()) ands.add(cb.disjunction());
+                else ands.add(root.get("litigationCaseId").in(courtCaseIds));
+            }
             switch (scope.kind()) {
                 case ALL -> { /* لا قيد إضافي */ }
                 case BRANCHES -> {
@@ -211,13 +222,15 @@ public class ExecutionService {
     public ExecutionStepDto addStep(Long executionFileId, AddExecutionStepRequest req, Long actorUserId) {
         ExecutionFile ef = fileRepo.findById(executionFileId)
                 .orElseThrow(() -> new NotFoundException("Execution file not found: " + executionFileId));
-        //  - assigned_user_id == actor (المحامي/الموظف المُسنَد للملف).
-        AuthorizationContext ctx = authorizationService.loadContext(actorUserId);
+        // PR-12 (customer feedback Q-E, stricter than the original D-2 default):
+        // ADMIN_CLERK is now banned from execution steps regardless of any
+        // ADD_EXECUTION_STEP delegation. SECTION_HEAD/BRANCH_HEAD never had a
+        // path. Only the user assigned to the execution file (the lawyer) may
+        // append. See Phase-5 ownership note (D-032).
         boolean assignedActor = ef.getAssignedUserId() != null
                 && ef.getAssignedUserId().equals(actorUserId);
         if (!assignedActor) {
-            authorizationService.requireCaseManagement(ctx, ef.getBranchId(), ef.getDepartmentId(),
-                    DelegatedPermissionCode.ADD_EXECUTION_STEP);
+            throw new ForbiddenException("Only the user assigned to this execution file may add steps");
         }
 
         Instant now = Instant.now();
@@ -242,12 +255,27 @@ public class ExecutionService {
         return toStepDto(step);
     }
 
+    /**
+     * PR-12 (customer feedback C-7 / D-2): step-level visibility is narrower
+     * than file-level. Managers (BRANCH_HEAD / SECTION_HEAD / ADMIN_CLERK) see
+     * only the file row — never the step timeline. Read-paths allowed:
+     *  - the user assigned to the execution file (the lawyer working it),
+     *  - central / read-only / special-inspector supervisors (oversight).
+     * Anyone else with file-row access still gets 403 here.
+     */
     @Transactional(readOnly = true)
     public List<ExecutionStepDto> listSteps(Long executionFileId, Long actorUserId) {
         ExecutionFile ef = fileRepo.findById(executionFileId)
                 .orElseThrow(() -> new NotFoundException("Execution file not found: " + executionFileId));
         AuthorizationContext ctx = authorizationService.loadContext(actorUserId);
-        requireFileReadAccess(ef, ctx);
+        boolean assigned = ef.getAssignedUserId() != null
+                && ef.getAssignedUserId().equals(actorUserId);
+        boolean supervisor = ctx.isCentralSupervisor()
+                || ctx.isReadOnlySupervisor()
+                || ctx.isSpecialInspector();
+        if (!assigned && !supervisor) {
+            throw new ForbiddenException("Step-level activity is restricted to the assigned user");
+        }
         return stepRepo.findByExecutionFileIdOrderByStepDateAscIdAsc(executionFileId)
                 .stream().map(this::toStepDto).toList();
     }

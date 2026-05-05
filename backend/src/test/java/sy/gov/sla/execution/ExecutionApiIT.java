@@ -237,13 +237,15 @@ class ExecutionApiIT extends AbstractIntegrationTest {
                 .andExpect(status().isOk()).andReturn();
         long efId = om.readTree(p.getResponse().getContentAsString()).get("id").asLong();
 
-        // إضافة ثلاث خطوات بترتيب غير زمني
-        addStep(efId, headTok, "2026-05-10", "NOTICE_REQUEST", "طلب تبليغ");
-        addStep(efId, headTok, "2026-05-05", "NOTICE_ISSUED",  "تم التبليغ");
-        addStep(efId, headTok, "2026-05-15", "SEIZURE_REQUEST", "طلب حجز");
+        // PR-12 (Q-E): only the assigned lawyer may append steps. The assigned
+        // user inherited from the source stage's owner (lawTok).
+        addStep(efId, lawTok, "2026-05-10", "NOTICE_REQUEST", "طلب تبليغ");
+        addStep(efId, lawTok, "2026-05-05", "NOTICE_ISSUED",  "تم التبليغ");
+        addStep(efId, lawTok, "2026-05-15", "SEIZURE_REQUEST", "طلب حجز");
 
+        // PR-12 (C-7): step listing requires the assigned lawyer or a supervisor.
         var arr = om.readTree(mvc.perform(get("/api/v1/execution-files/" + efId + "/steps")
-                .header("Authorization", "Bearer " + headTok))
+                .header("Authorization", "Bearer " + lawTok))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
         assertThat(arr.size()).isEqualTo(3);
         // مرتَّبة تصاعديًا حسب step_date
@@ -270,7 +272,8 @@ class ExecutionApiIT extends AbstractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content(promoteBody("E-4-" + System.nanoTime())))
                 .andExpect(status().isOk()).andReturn();
         long efId = om.readTree(p.getResponse().getContentAsString()).get("id").asLong();
-        addStep(efId, headTok, "2026-05-10", "ADMIN_ACTION", "إجراء");
+        // PR-12 (Q-E): only the assigned lawyer may append.
+        addStep(efId, lawTok, "2026-05-10", "ADMIN_ACTION", "إجراء");
 
         // PUT/DELETE على /steps/{...} يجب أن يُرفض (405 Method Not Allowed أو 404).
         var put = mvc.perform(put("/api/v1/execution-files/" + efId + "/steps/1")
@@ -322,11 +325,30 @@ class ExecutionApiIT extends AbstractIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isForbidden());
 
-        // ADMIN_CLERK بدون التفويض ADD_EXECUTION_STEP مرفوض
+        // ADMIN_CLERK مرفوض دائمًا (PR-12 / Q-E: حظر شامل بصرف النظر عن التفويض).
         mvc.perform(post("/api/v1/execution-files/" + efId + "/steps")
                 .header("Authorization", "Bearer " + clerkTok)
                 .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isForbidden());
+
+        // PR-12 (C-7): SECTION_HEAD من نفس الفرع مرفوض أيضًا — الخطوات للمحامي المُسنَد فقط.
+        mvc.perform(post("/api/v1/execution-files/" + efId + "/steps")
+                .header("Authorization", "Bearer " + headTok)
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isForbidden());
+
+        // PR-12 (C-7): listSteps محظور أيضًا على SECTION_HEAD.
+        mvc.perform(get("/api/v1/execution-files/" + efId + "/steps")
+                .header("Authorization", "Bearer " + headTok))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/execution-files/" + efId + "/steps")
+                .header("Authorization", "Bearer " + clerkTok))
+                .andExpect(status().isForbidden());
+
+        // file-level visibility for the same SECTION_HEAD remains intact.
+        mvc.perform(get("/api/v1/execution-files/" + efId)
+                .header("Authorization", "Bearer " + headTok))
+                .andExpect(status().isOk());
     }
 
     // ===== 11 + 12) hearing history preserved + no new HearingProgressionEntry =====
@@ -347,8 +369,9 @@ class ExecutionApiIT extends AbstractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content(promoteBody("E-7-" + System.nanoTime())))
                 .andExpect(status().isOk()).andReturn();
         long efId = om.readTree(p.getResponse().getContentAsString()).get("id").asLong();
-        addStep(efId, headTok, "2026-05-10", "ADMIN_ACTION", "إجراء 1");
-        addStep(efId, headTok, "2026-05-11", "ADMIN_ACTION", "إجراء 2");
+        // PR-12 (Q-E): only the assigned lawyer may append.
+        addStep(efId, lawTok, "2026-05-10", "ADMIN_ACTION", "إجراء 1");
+        addStep(efId, lawTok, "2026-05-11", "ADMIN_ACTION", "إجراء 2");
 
         int afterSize = om.readTree(mvc.perform(get("/api/v1/stages/" + prevStageId + "/hearing-history")
                 .header("Authorization", "Bearer " + headTok)).andReturn()
