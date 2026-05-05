@@ -2,6 +2,7 @@ import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { useAuth } from '@/features/auth/AuthContext';
 import { ROLE_LABEL_AR } from '@/shared/types/domain';
+import { CaseSummaryWidget } from '@/features/reports/CaseSummaryWidget';
 
 export function DashboardPage() {
   const { user } = useAuth();
@@ -9,8 +10,14 @@ export function DashboardPage() {
     <>
       <PageHeader
         title="مرحبًا"
-        subtitle="هذه نسخة الأساس للواجهة (المرحلة 8). صفحات الأعمال ستضاف لاحقًا."
+        subtitle="نظرة سريعة على دعاويك ضمن نطاقك."
       />
+
+      {/* PR-13 (customer feedback A-2 / Q-B): pie + money totals on the home
+          page. Backend scopes the numbers to the actor's read scope. */}
+      <div className="mb-4">
+        <CaseSummaryWidget />
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
@@ -47,9 +54,6 @@ export function DashboardPage() {
               <li>دليل الجهات العامة</li>
               <li>التعاميم</li>
             </ul>
-            <p className="mt-3 text-xs text-slate-500">
-              صفحات الدعاوى والتنفيذ والمرفقات والتذكيرات والإشعارات ستُبنى في المراحل التالية.
-            </p>
           </CardBody>
         </Card>
       </div>

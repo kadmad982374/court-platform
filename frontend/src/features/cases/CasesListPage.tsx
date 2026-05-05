@@ -27,6 +27,7 @@ import { Select } from '@/shared/ui/FormFields';
 import { extractApiErrorMessage } from '@/shared/lib/apiError';
 import { useAuth } from '@/features/auth/AuthContext';
 import { canCreateCase, hasRole } from '@/features/auth/permissions';
+import { CaseSummaryWidget } from '@/features/reports/CaseSummaryWidget';
 import {
   DEPARTMENT_TYPE_LABEL_AR,
   LIFECYCLE_LABEL_AR,
@@ -107,6 +108,14 @@ export function CasesListPage() {
           ) : undefined
         }
       />
+
+      {/* PR-13 (customer feedback A-2 / Q-B): same widget as the dashboard,
+          but compact so it doesn't push the cases table below the fold. */}
+      {mode.kind !== 'none' && (
+        <div className="mb-4">
+          <CaseSummaryWidget compact />
+        </div>
+      )}
 
       {mode.kind !== 'none' && (
         <Card className="mb-4">
