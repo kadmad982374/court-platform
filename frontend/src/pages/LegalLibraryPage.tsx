@@ -5,6 +5,7 @@ import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { Spinner } from '@/shared/ui/Spinner';
 import type { LegalCategory, LegalLibraryItem, PageResponse } from '@/shared/types/domain';
+import { extractApiErrorMessage } from '@/shared/lib/apiError';
 
 /**
  * Phase 8 — initial read integration only. NOT a full business page.
@@ -37,7 +38,11 @@ export function LegalLibraryPage() {
           </CardHeader>
           <CardBody>
             {categoriesQ.isLoading && <Spinner className="text-brand-600" />}
-            {categoriesQ.isError && <p className="text-sm text-red-600">تعذّر تحميل الفئات.</p>}
+            {categoriesQ.isError && (
+              <p className="text-sm text-red-600">
+                {extractApiErrorMessage(categoriesQ.error, 'تعذّر تحميل الفئات.')}
+              </p>
+            )}
             {categoriesQ.data && (
               <ul className="space-y-1 text-sm text-slate-700">
                 {categoriesQ.data.map((c) => (
@@ -56,7 +61,11 @@ export function LegalLibraryPage() {
           </CardHeader>
           <CardBody>
             {itemsQ.isLoading && <Spinner className="text-brand-600" />}
-            {itemsQ.isError && <p className="text-sm text-red-600">تعذّر تحميل العناصر.</p>}
+            {itemsQ.isError && (
+              <p className="text-sm text-red-600">
+                {extractApiErrorMessage(itemsQ.error, 'تعذّر تحميل العناصر.')}
+              </p>
+            )}
             {itemsQ.data && (
               <>
                 <ul className="space-y-2 text-sm">

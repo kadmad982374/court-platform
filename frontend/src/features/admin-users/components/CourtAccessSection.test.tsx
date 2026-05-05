@@ -76,7 +76,11 @@ describe('CourtAccessSection', () => {
     fireEvent.change(screen.getByLabelText('court-id'), { target: { value: '7' } });
     fireEvent.submit(screen.getByTestId('admin-court-access-add-form'));
     await waitFor(() => {
-      expect(screen.getByTestId('admin-court-access-error').textContent).toMatch(/سبق منح/);
+      // PR-7: backend returns code COURT_ACCESS_DUPLICATE; frontend translates
+      // it via AR_ERROR_MESSAGES. The mocked English/Arabic body.message is no
+      // longer surfaced — the canonical Arabic translation lives in the map.
+      expect(screen.getByTestId('admin-court-access-error').textContent)
+        .toMatch(/ممنوحة مسبقاً/);
     });
   });
 });

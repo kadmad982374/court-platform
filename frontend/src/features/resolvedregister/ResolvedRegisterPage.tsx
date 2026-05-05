@@ -13,6 +13,7 @@ import {
   type DecisionType,
   type ResolvedRegisterEntry,
 } from '@/shared/types/domain';
+import { extractApiErrorMessage } from '@/shared/lib/apiError';
 
 interface Filters {
   year?: string;
@@ -96,7 +97,11 @@ export function ResolvedRegisterPage() {
         <CardHeader><CardTitle>النتائج</CardTitle></CardHeader>
         <CardBody>
           {q.isLoading && <Spinner className="text-brand-600" />}
-          {q.isError && <p className="text-sm text-red-600">تعذّر تحميل سجل الفصل.</p>}
+          {q.isError && (
+            <p className="text-sm text-red-600">
+              {extractApiErrorMessage(q.error, 'تعذّر تحميل سجل الفصل.')}
+            </p>
+          )}
           {q.data && q.data.length === 0 && (
             <p className="text-sm text-slate-500">لا توجد نتائج بهذه الفلاتر.</p>
           )}

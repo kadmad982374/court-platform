@@ -108,7 +108,11 @@ export function StageDetailPage() {
           </CardHeader>
           <CardBody>
             {progQ.isLoading && <Spinner className="text-brand-600" />}
-            {progQ.isError && <p className="text-sm text-red-600">تعذّر تحميل التقدم.</p>}
+            {progQ.isError && (
+              <p className="text-sm text-red-600">
+                {extractApiErrorMessage(progQ.error, 'تعذّر تحميل التقدم.')}
+              </p>
+            )}
             {progQ.data && (
               <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                 <Field k="حالة المرحلة" v={STAGE_STATUS_LABEL_AR[progQ.data.latestStageStatus]} />
@@ -154,7 +158,11 @@ export function StageDetailPage() {
         </CardHeader>
         <CardBody>
           {histQ.isLoading && <Spinner className="text-brand-600" />}
-          {histQ.isError && <p className="text-sm text-red-600">تعذّر تحميل السجل.</p>}
+          {histQ.isError && (
+            <p className="text-sm text-red-600">
+              {extractApiErrorMessage(histQ.error, 'تعذّر تحميل السجل.')}
+            </p>
+          )}
           {histQ.data && histQ.data.length === 0 && (
             <p className="text-sm text-slate-500">لا توجد قيود.</p>
           )}

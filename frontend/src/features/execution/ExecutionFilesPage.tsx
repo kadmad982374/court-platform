@@ -13,6 +13,7 @@ import {
   EXECUTION_FILE_STATUS_LABEL_AR,
   type ExecutionFileStatus,
 } from '@/shared/types/domain';
+import { extractApiErrorMessage } from '@/shared/lib/apiError';
 
 export function ExecutionFilesPage() {
   const navigate = useNavigate();
@@ -71,7 +72,11 @@ export function ExecutionFilesPage() {
         <CardHeader><CardTitle>الملفات</CardTitle></CardHeader>
         <CardBody>
           {q.isLoading && <Spinner className="text-brand-600" />}
-          {q.isError && <p className="text-sm text-red-600">تعذّر تحميل الملفات.</p>}
+          {q.isError && (
+            <p className="text-sm text-red-600">
+              {extractApiErrorMessage(q.error, 'تعذّر تحميل الملفات.')}
+            </p>
+          )}
           {q.data && q.data.length === 0 && <p className="text-sm text-slate-500">لا توجد ملفات.</p>}
           {q.data && q.data.length > 0 && (
             <Table>

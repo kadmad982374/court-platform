@@ -77,7 +77,11 @@ export function ExecutionFileDetailPage() {
           <CardHeader><CardTitle>بيانات الملف</CardTitle></CardHeader>
           <CardBody>
             {fileQ.isLoading && <Spinner className="text-brand-600" />}
-            {fileQ.isError && <p className="text-sm text-red-600">تعذّر تحميل الملف.</p>}
+            {fileQ.isError && (
+              <p className="text-sm text-red-600">
+                {extractApiErrorMessage(fileQ.error, 'تعذّر تحميل الملف.')}
+              </p>
+            )}
             {file && (
               <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                 <Field k="الجهة المنفِّذة" v={file.enforcingEntityName} />
@@ -115,7 +119,11 @@ export function ExecutionFileDetailPage() {
         <CardHeader><CardTitle>الخطوات (الأقدم أولًا)</CardTitle></CardHeader>
         <CardBody>
           {stepsQ.isLoading && <Spinner className="text-brand-600" />}
-          {stepsQ.isError && <p className="text-sm text-red-600">تعذّر تحميل الخطوات.</p>}
+          {stepsQ.isError && (
+            <p className="text-sm text-red-600">
+              {extractApiErrorMessage(stepsQ.error, 'تعذّر تحميل الخطوات.')}
+            </p>
+          )}
           {stepsQ.data && stepsQ.data.length === 0 && (
             <p className="text-sm text-slate-500">لا توجد خطوات بعد.</p>
           )}
