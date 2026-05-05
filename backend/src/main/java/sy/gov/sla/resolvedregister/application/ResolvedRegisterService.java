@@ -25,11 +25,11 @@ public class ResolvedRegisterService {
     private final AuthorizationService authorizationService;
 
     public List<ResolvedRegisterEntryDto> query(Integer year, Integer month, Long branchId,
-                                                Long departmentId, String decisionType,
-                                                Long actorUserId) {
+                                                Long departmentId, Long courtId,
+                                                String decisionType, Long actorUserId) {
         AuthorizationContext ctx = authorizationService.loadContext(actorUserId);
         ScopeFilter scope = buildScope(ctx);
-        QueryFilter filter = new QueryFilter(year, month, branchId, departmentId, decisionType);
+        QueryFilter filter = new QueryFilter(year, month, branchId, departmentId, courtId, decisionType);
         return dao.query(filter, scope);
     }
 

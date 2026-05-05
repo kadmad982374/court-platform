@@ -1,7 +1,18 @@
-import { useState, type ReactNode } from 'react';
+// PR-10 (customer feedback B-3 / C-5) —
+// Role-aware filtered resolved-register.
+//
+// Per role:
+//   ADMIN        : year + month + branch + dept + court + decisionType
+//   BRANCH_HEAD  : year + month + dept + court + decisionType (branch implicit)
+//   SECTION_HEAD : year + month + court + decisionType (dept implicit)
+//   ADMIN_CLERK  : same as section_head
+//   STATE_LAWYER : year + month + decisionType (their cases auto-scoped)
+
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/api/http';
+import { listBranches, listCourts, listDepartments } from '@/shared/api/lookups';
 import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { Spinner } from '@/shared/ui/Spinner';
@@ -9,18 +20,25 @@ import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/Input';
 import { Select } from '@/shared/ui/FormFields';
 import { Table, TBody, TD, TH, THead, TR } from '@/shared/ui/Table';
+import { extractApiErrorMessage } from '@/shared/lib/apiError';
+import { useAuth } from '@/features/auth/AuthContext';
+import { hasRole } from '@/features/auth/permissions';
 import {
   DECISION_TYPE_LABEL_AR,
+  DEPARTMENT_TYPE_LABEL_AR,
+  type CurrentUser,
   type DecisionType,
+  type Department,
+  type DepartmentType,
   type ResolvedRegisterEntry,
 } from '@/shared/types/domain';
-import { extractApiErrorMessage } from '@/shared/lib/apiError';
 
 interface Filters {
   year?: string;
   month?: string;
-  branchId?: string;
-  departmentId?: string;
+  branchId?: number;
+  departmentId?: number;
+  courtId?: number;
   decisionType?: DecisionType | '';
 }
 
@@ -28,15 +46,58 @@ async function fetchResolved(f: Filters): Promise<ResolvedRegisterEntry[]> {
   const params: Record<string, string | number> = {};
   if (f.year)         params.year         = Number(f.year);
   if (f.month)        params.month        = Number(f.month);
-  if (f.branchId)     params.branchId     = Number(f.branchId);
-  if (f.departmentId) params.departmentId = Number(f.departmentId);
+  if (f.branchId)     params.branchId     = f.branchId;
+  if (f.departmentId) params.departmentId = f.departmentId;
+  if (f.courtId)      params.courtId      = f.courtId;
   if (f.decisionType) params.decisionType = f.decisionType;
   const r = await http.get<ResolvedRegisterEntry[]>('/resolved-register', { params });
   return r.data;
 }
 
+// ──────────────────────────────────────────────────────────────
+// Role → which filters to expose (mirrors CasesListPage's detectMode)
+// ──────────────────────────────────────────────────────────────
+type FilterMode =
+  | { kind: 'admin' }
+  | { kind: 'branch_head'; branchId: number }
+  | { kind: 'dept_member'; branchId: number; departmentId: number }
+  | { kind: 'lawyer' }
+  | { kind: 'none' };
+
+function detectMode(user: CurrentUser | null): FilterMode {
+  if (!user) return { kind: 'none' };
+  if (hasRole(user, 'CENTRAL_SUPERVISOR')) return { kind: 'admin' };
+  if (hasRole(user, 'READ_ONLY_SUPERVISOR') || hasRole(user, 'SPECIAL_INSPECTOR')) {
+    return { kind: 'admin' };
+  }
+  const branchHead = user.departmentMemberships.find(
+    (m) => m.active && m.membershipType === 'BRANCH_HEAD',
+  );
+  if (branchHead) return { kind: 'branch_head', branchId: branchHead.branchId };
+
+  const deptMembership = user.departmentMemberships.find(
+    (m) => m.active
+            && (m.membershipType === 'SECTION_HEAD' || m.membershipType === 'ADMIN_CLERK')
+            && m.departmentId != null,
+  );
+  if (deptMembership && deptMembership.departmentId != null) {
+    return {
+      kind: 'dept_member',
+      branchId: deptMembership.branchId,
+      departmentId: deptMembership.departmentId,
+    };
+  }
+  if (hasRole(user, 'STATE_LAWYER')) return { kind: 'lawyer' };
+  return { kind: 'none' };
+}
+
+// ──────────────────────────────────────────────────────────────
+
 export function ResolvedRegisterPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const mode = useMemo(() => detectMode(user), [user]);
+
   const [pending, setPending] = useState<Filters>({});
   const [applied, setApplied] = useState<Filters>({});
 
@@ -55,43 +116,13 @@ export function ResolvedRegisterPage() {
       <Card className="mb-4">
         <CardHeader><CardTitle>الفلاتر</CardTitle></CardHeader>
         <CardBody>
-          <form
-            className="grid grid-cols-1 gap-3 md:grid-cols-5"
-            onSubmit={(e) => { e.preventDefault(); setApplied(pending); }}
-          >
-            <Field label="السنة">
-              <Input type="number" value={pending.year ?? ''}
-                     onChange={(e) => setPending((p) => ({ ...p, year: e.target.value }))} />
-            </Field>
-            <Field label="الشهر (1-12)">
-              <Input type="number" min={1} max={12} value={pending.month ?? ''}
-                     onChange={(e) => setPending((p) => ({ ...p, month: e.target.value }))} />
-            </Field>
-            <Field label="معرّف الفرع">
-              <Input type="number" value={pending.branchId ?? ''}
-                     onChange={(e) => setPending((p) => ({ ...p, branchId: e.target.value }))} />
-            </Field>
-            <Field label="معرّف القسم">
-              <Input type="number" value={pending.departmentId ?? ''}
-                     onChange={(e) => setPending((p) => ({ ...p, departmentId: e.target.value }))} />
-            </Field>
-            <Field label="نوع القرار">
-              <Select value={pending.decisionType ?? ''}
-                      onChange={(e) => setPending((p) => ({ ...p, decisionType: e.target.value as DecisionType | '' }))}>
-                <option value="">الكل</option>
-                {(['FOR_ENTITY','AGAINST_ENTITY','SETTLEMENT','NON_FINAL'] as DecisionType[]).map((t) => (
-                  <option key={t} value={t}>{DECISION_TYPE_LABEL_AR[t]}</option>
-                ))}
-              </Select>
-            </Field>
-            <div className="md:col-span-5 flex justify-end gap-2">
-              <Button type="button" variant="ghost"
-                      onClick={() => { setPending({}); setApplied({}); }}>
-                مسح
-              </Button>
-              <Button type="submit">تطبيق</Button>
-            </div>
-          </form>
+          <FilterForm
+            mode={mode}
+            pending={pending}
+            setPending={setPending}
+            onApply={() => setApplied(pending)}
+            onClear={() => { setPending({}); setApplied({}); }}
+          />
         </CardBody>
       </Card>
 
@@ -122,9 +153,7 @@ export function ResolvedRegisterPage() {
                     <TH>رقم القرار</TH>
                     <TH>تاريخ القرار</TH>
                     <TH>نوع القرار</TH>
-                    {/* PR-8 (customer feedback A-5/B-4): row open action so admin
-                        and branch_head can drill into a resolved case to read
-                        its stages + attachments. */}
+                    {/* PR-8 (A-5/B-4): row open action — drill into the case detail. */}
                     <TH className="text-end">إجراء</TH>
                   </TR>
                 </THead>
@@ -163,6 +192,172 @@ export function ResolvedRegisterPage() {
   );
 }
 
+// ──────────────────────────────────────────────────────────────
+// Filter form (role-aware) — same lookup pattern as CasesListPage.
+// ──────────────────────────────────────────────────────────────
+
+function FilterForm({
+  mode, pending, setPending, onApply, onClear,
+}: {
+  mode: FilterMode;
+  pending: Filters;
+  setPending: React.Dispatch<React.SetStateAction<Filters>>;
+  onApply: () => void;
+  onClear: () => void;
+}) {
+  const branchesQ = useQuery({
+    queryKey: ['lookups', 'branches'],
+    queryFn: () => listBranches(),
+    enabled: mode.kind === 'admin',
+    staleTime: 60_000,
+  });
+
+  const activeBranchId =
+    mode.kind === 'branch_head' ? mode.branchId :
+    mode.kind === 'dept_member' ? mode.branchId :
+    mode.kind === 'admin'       ? pending.branchId :
+    undefined;
+
+  const departmentsQ = useQuery({
+    queryKey: ['lookups', 'departments', activeBranchId ?? null],
+    queryFn: () => listDepartments(activeBranchId!),
+    enabled: activeBranchId != null && (mode.kind === 'admin' || mode.kind === 'branch_head'),
+    staleTime: 60_000,
+  });
+
+  const memberDeptListQ = useQuery({
+    queryKey: ['lookups', 'departments', activeBranchId ?? null, 'for-dept-member'],
+    queryFn: () => listDepartments(activeBranchId!),
+    enabled: mode.kind === 'dept_member' && activeBranchId != null,
+    staleTime: 60_000,
+  });
+
+  const fixedDeptType: DepartmentType | undefined =
+    mode.kind === 'dept_member'
+      ? (memberDeptListQ.data ?? []).find((d) => d.id === mode.departmentId)?.type
+      : undefined;
+
+  const activeDeptType: DepartmentType | undefined =
+    fixedDeptType
+      ?? (pending.departmentId != null
+          ? (departmentsQ.data ?? []).find((d) => d.id === pending.departmentId)?.type
+          : undefined);
+
+  const courtsQ = useQuery({
+    queryKey: ['lookups', 'courts', activeBranchId ?? null, activeDeptType ?? null],
+    queryFn: () => listCourts({ branchId: activeBranchId, departmentType: activeDeptType }),
+    enabled: activeBranchId != null,
+    staleTime: 60_000,
+  });
+
+  // For dept_member, narrow server-side by dept.
+  useEffect(() => {
+    if (mode.kind === 'dept_member' && pending.departmentId == null) {
+      setPending((p) => ({ ...p, departmentId: mode.departmentId }));
+    }
+  }, [mode, pending.departmentId, setPending]);
+
+  return (
+    <form
+      className="grid grid-cols-1 gap-3 md:grid-cols-6"
+      onSubmit={(e) => { e.preventDefault(); onApply(); }}
+    >
+      <Field label="السنة">
+        <Input
+          type="number"
+          value={pending.year ?? ''}
+          onChange={(e) => setPending((p) => ({ ...p, year: e.target.value }))}
+        />
+      </Field>
+      <Field label="الشهر (1-12)">
+        <Input
+          type="number" min={1} max={12}
+          value={pending.month ?? ''}
+          onChange={(e) => setPending((p) => ({ ...p, month: e.target.value }))}
+        />
+      </Field>
+
+      {mode.kind === 'admin' && (
+        <Field label="الفرع">
+          <Select
+            value={pending.branchId ?? ''}
+            onChange={(e) => setPending((p) => ({
+              ...p,
+              branchId: e.target.value ? Number(e.target.value) : undefined,
+              departmentId: undefined,
+              courtId: undefined,
+            }))}
+          >
+            <option value="">الكل</option>
+            {(branchesQ.data ?? []).map((b) => (
+              <option key={b.id} value={b.id}>{b.nameAr}</option>
+            ))}
+          </Select>
+        </Field>
+      )}
+
+      {(mode.kind === 'admin' || mode.kind === 'branch_head') && (
+        <Field label="القسم">
+          <Select
+            value={pending.departmentId ?? ''}
+            disabled={mode.kind === 'admin' && !pending.branchId}
+            onChange={(e) => setPending((p) => ({
+              ...p,
+              departmentId: e.target.value ? Number(e.target.value) : undefined,
+              courtId: undefined,
+            }))}
+          >
+            <option value="">الكل</option>
+            {(departmentsQ.data ?? []).map((d: Department) => (
+              <option key={d.id} value={d.id}>
+                {d.nameAr || DEPARTMENT_TYPE_LABEL_AR[d.type]}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
+
+      {(mode.kind === 'admin' || mode.kind === 'branch_head' || mode.kind === 'dept_member') && (
+        <Field label="المحكمة">
+          <Select
+            value={pending.courtId ?? ''}
+            disabled={activeBranchId == null}
+            onChange={(e) => setPending((p) => ({
+              ...p,
+              courtId: e.target.value ? Number(e.target.value) : undefined,
+            }))}
+          >
+            <option value="">الكل</option>
+            {(courtsQ.data ?? []).map((c) => (
+              <option key={c.id} value={c.id}>{c.nameAr}</option>
+            ))}
+          </Select>
+        </Field>
+      )}
+
+      <Field label="نوع القرار">
+        <Select
+          value={pending.decisionType ?? ''}
+          onChange={(e) => setPending((p) => ({
+            ...p,
+            decisionType: e.target.value as DecisionType | '',
+          }))}
+        >
+          <option value="">الكل</option>
+          {(['FOR_ENTITY','AGAINST_ENTITY','SETTLEMENT','NON_FINAL'] as DecisionType[]).map((t) => (
+            <option key={t} value={t}>{DECISION_TYPE_LABEL_AR[t]}</option>
+          ))}
+        </Select>
+      </Field>
+
+      <div className="md:col-span-6 flex justify-end gap-2">
+        <Button type="button" variant="ghost" onClick={onClear}>مسح</Button>
+        <Button type="submit">تطبيق</Button>
+      </div>
+    </form>
+  );
+}
+
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
@@ -171,5 +366,3 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
     </div>
   );
 }
-
-
