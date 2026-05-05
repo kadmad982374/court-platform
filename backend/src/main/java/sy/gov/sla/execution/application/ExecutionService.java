@@ -126,8 +126,13 @@ public class ExecutionService {
                 .build();
         ef = fileRepo.save(ef);
 
+        // PR-8 (C-4): include the destination execution dept's (branchId, departmentId)
+        // so the notification listener can reach its SECTION_HEAD + ADMIN_CLERK without
+        // a follow-up lookup.
         events.publishEvent(new CasePromotedToExecutionEvent(
-                res.caseId(), res.sourceStageId(), ef.getId(), actorUserId, now));
+                res.caseId(), res.sourceStageId(), ef.getId(),
+                ef.getBranchId(), ef.getDepartmentId(),
+                actorUserId, now));
 
         UserActionLog.action("promoted case #{} to execution — execution file #{}", res.caseId(), ef.getId());
 

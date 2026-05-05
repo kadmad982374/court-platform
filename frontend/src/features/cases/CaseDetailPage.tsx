@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -18,6 +18,7 @@ import {
   canEditCaseBasicData,
   canPromoteToAppeal,
   canPromoteToExecution,
+  hasRole,
 } from '@/features/auth/permissions';
 import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { PageHeader } from '@/shared/ui/PageHeader';
@@ -102,6 +103,20 @@ export function CaseDetailPage() {
 
   if (!Number.isFinite(caseId)) return <p className="text-sm text-red-600">معرّف غير صالح.</p>;
 
+  // PR-8 (customer feedback B-2): hide the "actions on case level" panel
+  // entirely if the current user has none of the three actions available
+  // (so admin / branch_head no longer see an empty card).
+  const showActionsCard =
+    canEditCaseBasicData(user, caseQ.data ?? null)
+    || canPromoteToAppeal(user)
+    || canPromoteToExecution(user);
+
+  // PR-8 (customer feedback A-4): reminders are personal to STATE_LAWYER
+  // (per D-037). Hide the section entirely for everyone else — admins,
+  // branch heads, section heads, and clerks should not see the
+  // "إنشاء تذكير" UI on the case page.
+  const showReminders = hasRole(user, 'STATE_LAWYER');
+
   return (
     <>
       <PageHeader title={`الدعوى رقم ${caseId}`} subtitle="البيانات الأساسية والمراحل." />
@@ -112,7 +127,7 @@ export function CaseDetailPage() {
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className={showActionsCard ? 'grid gap-4 lg:grid-cols-2' : ''}>
         <Card>
           <CardHeader>
             <CardTitle>المعلومات الأساسية</CardTitle>
@@ -146,51 +161,48 @@ export function CaseDetailPage() {
           </CardBody>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>أفعال على مستوى الدعوى</CardTitle>
-          </CardHeader>
-          <CardBody className="space-y-3">
-            <p className="text-xs text-slate-500">
-              تظهر الأزرار فقط للمستخدمين المخوّلين وفق D-027 (الترقية للاستئناف)
-              و D-030 (الترقية للتنفيذ). المنع الحقيقي على الخادم.
-            </p>
+        {showActionsCard && (
+          <Card>
+            <CardHeader>
+              <CardTitle>أفعال على مستوى الدعوى</CardTitle>
+            </CardHeader>
+            <CardBody className="space-y-3">
+              <p className="text-xs text-slate-500">
+                تظهر الأزرار فقط للمستخدمين المخوّلين وفق D-027 (الترقية للاستئناف)
+                و D-030 (الترقية للتنفيذ). المنع الحقيقي على الخادم.
+              </p>
 
-            <div className="flex flex-wrap gap-2">
-              {canEditCaseBasicData(user, caseQ.data ?? null) && (
-                <Button
-                  variant="secondary"
-                  onClick={() => setEditBasicOpen(true)}
-                >
-                  تعديل البيانات الأساسية
-                </Button>
-              )}
-              {canPromoteToAppeal(user) && (
-                <Button
-                  variant="secondary"
-                  disabled={promoteAppealMut.isPending}
-                  onClick={() => promoteAppealMut.mutate()}
-                >
-                  {promoteAppealMut.isPending ? <Spinner /> : null}
-                  <span>ترقية إلى الاستئناف</span>
-                </Button>
-              )}
-              {canPromoteToExecution(user) && (
-                <Button
-                  variant="secondary"
-                  onClick={() => setPromoteExecOpen(true)}
-                >
-                  ترقية إلى التنفيذ
-                </Button>
-              )}
-              {!canPromoteToAppeal(user)
-                && !canPromoteToExecution(user)
-                && !canEditCaseBasicData(user, caseQ.data ?? null) && (
-                <p className="text-xs text-slate-400">لا توجد أفعال مسموحة لك على هذا المستوى.</p>
-              )}
-            </div>
-          </CardBody>
-        </Card>
+              <div className="flex flex-wrap gap-2">
+                {canEditCaseBasicData(user, caseQ.data ?? null) && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => setEditBasicOpen(true)}
+                  >
+                    تعديل البيانات الأساسية
+                  </Button>
+                )}
+                {canPromoteToAppeal(user) && (
+                  <Button
+                    variant="secondary"
+                    disabled={promoteAppealMut.isPending}
+                    onClick={() => promoteAppealMut.mutate()}
+                  >
+                    {promoteAppealMut.isPending ? <Spinner /> : null}
+                    <span>ترقية إلى الاستئناف</span>
+                  </Button>
+                )}
+                {canPromoteToExecution(user) && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => setPromoteExecOpen(true)}
+                  >
+                    ترقية إلى التنفيذ
+                  </Button>
+                )}
+              </div>
+            </CardBody>
+          </Card>
+        )}
       </div>
 
       <Card className="mt-4">
@@ -250,6 +262,9 @@ export function CaseDetailPage() {
         onSubmit={(body) => promoteExecMut.mutate(body)}
         submitting={promoteExecMut.isPending}
         error={promoteExecMut.isError ? extractApiErrorMessage(promoteExecMut.error) : null}
+        // PR-8 (customer feedback C-3): pre-fill the form from the source case
+        // so the user only confirms / tweaks instead of re-typing everything.
+        prefill={caseQ.data ?? null}
       />
 
       {/* Mini-Phase A — Assign Lawyer (D-046). Hidden by the section itself
@@ -267,8 +282,9 @@ export function CaseDetailPage() {
         />
       )}
 
-      {/* Phase 10 — personal reminders on this case (D-037). */}
-      <RemindersSection caseId={caseId} />
+      {/* Phase 10 — personal reminders on this case (D-037).
+          PR-8 (customer feedback A-4): only state lawyers see this section. */}
+      {showReminders && <RemindersSection caseId={caseId} />}
     </>
   );
 }
@@ -294,16 +310,39 @@ const promoteExecSchema = z.object({
 type PromoteExecForm = z.infer<typeof promoteExecSchema>;
 
 function PromoteExecutionModal({
-  open, onClose, onSubmit, submitting, error,
+  open, onClose, onSubmit, submitting, error, prefill,
 }: {
   open: boolean; onClose: () => void;
   onSubmit: (body: PromoteToExecutionRequest) => void;
   submitting: boolean;
   error?: string | null;
+  /** PR-8 (C-3): source case used to pre-fill the form. */
+  prefill: { publicEntityName: string; opponentName: string;
+             originalBasisNumber: string; basisYear: number } | null;
 }) {
   const { register, handleSubmit, reset, formState: { errors } } = useForm<PromoteExecForm>({
     resolver: zodResolver(promoteExecSchema),
   });
+
+  // PR-8 (C-3): when the modal opens (or the source case changes), seed the
+  // form with the case's basic data so the user only confirms / adjusts.
+  // Mappings per customer feedback page 4:
+  //   الجهة المنفِّذة     ← case.publicEntityName
+  //   المنفَّذ ضدّه       ← case.opponentName
+  //   نوع الملف التنفيذي ← "حكم"  (most common; user can override)
+  //   رقم الملف التنفيذي ← EX-{originalBasisNumber}/{basisYear}  (suggested)
+  //   السنة              ← current year
+  useEffect(() => {
+    if (open && prefill) {
+      reset({
+        enforcingEntityName: prefill.publicEntityName,
+        executedAgainstName: prefill.opponentName,
+        executionFileType:   'حكم',
+        executionFileNumber: `EX-${prefill.originalBasisNumber}/${prefill.basisYear}`,
+        executionYear:       new Date().getFullYear(),
+      });
+    }
+  }, [open, prefill, reset]);
 
   return (
     <Modal
