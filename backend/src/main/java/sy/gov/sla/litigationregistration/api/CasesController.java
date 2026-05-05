@@ -21,12 +21,20 @@ public class CasesController {
         return service.createCase(req, actor);
     }
 
+    /**
+     * PR-9 (customer feedback A-3 / B-1 / C-1 / D-1) — filtered listing.
+     * All four filter params are optional and applied on top of the role scope.
+     */
     @GetMapping
     public PageResponse<LitigationCaseDto> list(
             @RequestParam(value = "page", defaultValue = "0") int page,
-            @RequestParam(value = "size", defaultValue = "20") int size) {
+            @RequestParam(value = "size", defaultValue = "20") int size,
+            @RequestParam(value = "branchId", required = false) Long branchId,
+            @RequestParam(value = "departmentId", required = false) Long departmentId,
+            @RequestParam(value = "courtId", required = false) Long courtId,
+            @RequestParam(value = "q", required = false) String q) {
         Long actor = SecurityUtils.currentUserOrThrow().userId();
-        return service.listCases(page, size, actor);
+        return service.listCases(page, size, actor, branchId, departmentId, courtId, q);
     }
 
     @GetMapping("/{id}")
