@@ -10,7 +10,11 @@ import {
   listExecutionSteps,
 } from './api';
 import { useAuth } from '@/features/auth/AuthContext';
-import { canAddExecutionStep, canUploadExecutionFileAttachment } from '@/features/auth/permissions';
+import {
+  canAddExecutionStep,
+  canUploadExecutionFileAttachment,
+  canViewExecutionSteps,
+} from '@/features/auth/permissions';
 import { AttachmentsSection } from '@/features/attachments/AttachmentsSection';
 import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { PageHeader } from '@/shared/ui/PageHeader';
@@ -39,10 +43,16 @@ export function ExecutionFileDetailPage() {
     queryFn: () => getExecutionFile(id),
     enabled: Number.isFinite(id),
   });
+
+  // PR-12 (C-7 / D-2): only the assigned lawyer or supervisors can SEE the
+  // step timeline; managers see file rows only. Skip the request entirely
+  // when the user isn't allowed — backend would 403 anyway and this saves
+  // the round-trip + avoids a misleading error toast on the page.
+  const showSteps = canViewExecutionSteps(user, fileQ.data ?? null);
   const stepsQ = useQuery({
     queryKey: ['execution-files', id, 'steps'],
     queryFn: () => listExecutionSteps(id),
-    enabled: Number.isFinite(id),
+    enabled: Number.isFinite(id) && showSteps,
   });
 
   const [actionError, setActionError] = useState<string | null>(null);
@@ -97,62 +107,72 @@ export function ExecutionFileDetailPage() {
           </CardBody>
         </Card>
 
-        <Card>
-          <CardHeader><CardTitle>أفعال الملف</CardTitle></CardHeader>
-          <CardBody>
-            <p className="text-xs text-slate-500">
-              إضافة خطوة (D-031) متاحة للمسؤول المُسنَد للملف، أو لـ ADMIN_CLERK
-              مُفوَّض بـ <code>ADD_EXECUTION_STEP</code>.
-            </p>
-            <div className="mt-2">
-              {showAdd ? (
-                <Button onClick={() => setAddOpen(true)}>إضافة خطوة</Button>
-              ) : (
-                <p className="text-xs text-slate-400">لا تملك صلاحية إضافة خطوة.</p>
-              )}
-            </div>
-          </CardBody>
-        </Card>
+        {showSteps && (
+          <Card>
+            <CardHeader><CardTitle>أفعال الملف</CardTitle></CardHeader>
+            <CardBody>
+              <p className="text-xs text-slate-500">
+                إضافة خطوة (D-031) متاحة للمحامي المُسنَد لهذا الملف فقط
+                (PR-12 / Q-E).
+              </p>
+              <div className="mt-2">
+                {showAdd ? (
+                  <Button onClick={() => setAddOpen(true)}>إضافة خطوة</Button>
+                ) : (
+                  <p className="text-xs text-slate-400">لا تملك صلاحية إضافة خطوة.</p>
+                )}
+              </div>
+            </CardBody>
+          </Card>
+        )}
       </div>
 
-      <Card className="mt-4">
-        <CardHeader><CardTitle>الخطوات (الأقدم أولًا)</CardTitle></CardHeader>
-        <CardBody>
-          {stepsQ.isLoading && <Spinner className="text-brand-600" />}
-          {stepsQ.isError && (
-            <p className="text-sm text-red-600">
-              {extractApiErrorMessage(stepsQ.error, 'تعذّر تحميل الخطوات.')}
-            </p>
-          )}
-          {stepsQ.data && stepsQ.data.length === 0 && (
-            <p className="text-sm text-slate-500">لا توجد خطوات بعد.</p>
-          )}
-          {stepsQ.data && stepsQ.data.length > 0 && (
-            <Table>
-              <THead>
-                <TR>
-                  <TH>التاريخ</TH>
-                  <TH>النوع</TH>
-                  <TH>الوصف</TH>
-                  <TH>أُنشئ بتاريخ</TH>
-                </TR>
-              </THead>
-              <TBody>
-                {[...stepsQ.data]
-                  .sort((a, b) => a.stepDate.localeCompare(b.stepDate))
-                  .map((s) => (
-                  <TR key={s.id}>
-                    <TD>{s.stepDate}</TD>
-                    <TD>{EXECUTION_STEP_TYPE_LABEL_AR[s.stepType]}</TD>
-                    <TD className="whitespace-pre-wrap">{s.stepDescription}</TD>
-                    <TD className="text-xs text-slate-500">{s.createdAt}</TD>
+      {showSteps && (
+        <Card className="mt-4">
+          <CardHeader><CardTitle>الخطوات (الأقدم أولًا)</CardTitle></CardHeader>
+          <CardBody>
+            {stepsQ.isLoading && <Spinner className="text-brand-600" />}
+            {stepsQ.isError && (
+              <p className="text-sm text-red-600">
+                {extractApiErrorMessage(stepsQ.error, 'تعذّر تحميل الخطوات.')}
+              </p>
+            )}
+            {stepsQ.data && stepsQ.data.length === 0 && (
+              <p className="text-sm text-slate-500">لا توجد خطوات بعد.</p>
+            )}
+            {stepsQ.data && stepsQ.data.length > 0 && (
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>التاريخ</TH>
+                    <TH>النوع</TH>
+                    <TH>الوصف</TH>
+                    <TH>أُنشئ بتاريخ</TH>
                   </TR>
-                ))}
-              </TBody>
-            </Table>
-          )}
-        </CardBody>
-      </Card>
+                </THead>
+                <TBody>
+                  {[...stepsQ.data]
+                    .sort((a, b) => a.stepDate.localeCompare(b.stepDate))
+                    .map((s) => (
+                    <TR key={s.id}>
+                      <TD>{s.stepDate}</TD>
+                      <TD>{EXECUTION_STEP_TYPE_LABEL_AR[s.stepType]}</TD>
+                      <TD className="whitespace-pre-wrap">{s.stepDescription}</TD>
+                      <TD className="text-xs text-slate-500">{s.createdAt}</TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+            )}
+          </CardBody>
+        </Card>
+      )}
+
+      {!showSteps && (
+        <p className="mt-4 text-xs text-slate-500">
+          عرض الخطوات مقصور على المحامي المُسنَد للملف (PR-12 / C-7).
+        </p>
+      )}
 
       <AddStepModal
         open={addOpen}

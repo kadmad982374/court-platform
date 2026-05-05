@@ -6,6 +6,7 @@ import sy.gov.sla.litigationregistration.domain.StageType;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * منفذ Port: تستهلكه الوحدات الأخرى (litigationprogression, decisionfinalization,
@@ -18,6 +19,14 @@ public interface CaseStagePort {
 
     /** يجلب الدعوى مع المرحلة الحالية في عملية واحدة (لـ stage-transition). */
     Optional<CaseAndCurrentStage> findCaseWithCurrentStage(Long caseId);
+
+    /**
+     * PR-12 (customer feedback Q-A / E-2): set of {@code litigation_cases.id} for
+     * cases registered in the given court. Used by the execution module to
+     * filter execution-files by "region" (= court). Returns an empty set when
+     * no case matches; callers translate that to a no-rows IN clause.
+     */
+    Set<Long> findCaseIdsByCourtId(Long courtId);
 
     /** يجعل المرحلة في حالة IN_PROGRESS (أول rollover بعد REGISTERED/ASSIGNED). */
     void markInProgress(Long stageId);

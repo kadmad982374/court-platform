@@ -17,7 +17,9 @@ import sy.gov.sla.organization.infrastructure.CourtRepository;
 import sy.gov.sla.organization.infrastructure.DepartmentRepository;
 
 import java.time.Instant;
+import java.util.LinkedHashSet;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Adapter لـ {@link CaseStagePort}. مرجع: D-023 + D-027.
@@ -61,6 +63,20 @@ public class CaseStagePortAdapter implements CaseStagePort {
                     s.getStageStatus(), s.isReadOnly(), lc.getLifecycleStatus(),
                     lc.getCurrentOwnerUserId()));
         });
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Set<Long> findCaseIdsByCourtId(Long courtId) {
+        if (courtId == null) return Set.of();
+        Set<Long> ids = new LinkedHashSet<>();
+        caseRepo.findAll(
+                (root, q, cb) -> {
+                    q.distinct(true);
+                    return cb.equal(root.get("createdCourtId"), courtId);
+                }
+        ).forEach(lc -> ids.add(lc.getId()));
+        return ids;
     }
 
     @Override

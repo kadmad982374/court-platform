@@ -113,10 +113,11 @@ describe('permissions', () => {
     expect(canPromoteToExecution(user(['CENTRAL_SUPERVISOR']))).toBe(false);
   });
 
-  it('canAddExecutionStep: assignedUserId, or ADMIN_CLERK+ADD_EXECUTION_STEP, only on open files', () => {
+  it('canAddExecutionStep (PR-12 / Q-E): only the assigned user — clerk delegation no longer overrides', () => {
     expect(canAddExecutionStep(user(['STATE_LAWYER'], [], 42), file())).toBe(true);
     expect(canAddExecutionStep(user(['STATE_LAWYER'], [], 99), file())).toBe(false);
-    expect(canAddExecutionStep(user(['ADMIN_CLERK'], [{ code: 'ADD_EXECUTION_STEP', granted: true }], 99), file())).toBe(true);
+    // Q-E stricter: ADMIN_CLERK with the delegation is NOW rejected.
+    expect(canAddExecutionStep(user(['ADMIN_CLERK'], [{ code: 'ADD_EXECUTION_STEP', granted: true }], 99), file())).toBe(false);
     expect(canAddExecutionStep(user(['STATE_LAWYER'], [], 42), file({ status: 'CLOSED' }))).toBe(false);
     expect(canAddExecutionStep(user(['SECTION_HEAD'], [], 99), file())).toBe(false);
   });

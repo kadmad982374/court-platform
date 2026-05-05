@@ -100,9 +100,11 @@ export function canPromoteToExecution(user: CurrentUser | null): boolean {
 }
 
 /**
- * D-031/D-032 — append step. The assigned user of the file may add; an
- * ADMIN_CLERK with ADD_EXECUTION_STEP delegation may also add.
- * (SECTION_HEAD by default cannot append steps unless explicitly delegated.)
+ * PR-12 (customer feedback Q-E, stricter than the original D-2 default):
+ * step-level activity is reserved for the user assigned to the execution
+ * file (the lawyer working it). ADMIN_CLERK is now banned regardless of any
+ * ADD_EXECUTION_STEP delegation, and SECTION_HEAD/BRANCH_HEAD never had a
+ * path. Backend re-validates with 403.
  */
 export function canAddExecutionStep(
   user: CurrentUser | null,
@@ -110,9 +112,24 @@ export function canAddExecutionStep(
 ): boolean {
   if (!user || !file) return false;
   if (file.status === 'CLOSED' || file.status === 'ARCHIVED') return false;
+  return isAssignedToExecutionFile(user, file);
+}
+
+/**
+ * PR-12 (customer feedback C-7 / D-2): step-level visibility is narrower
+ * than file-level. Managers see only the file row — never the step
+ * timeline. Read-paths allowed: the assigned lawyer, or supervisors
+ * (CENTRAL_SUPERVISOR / READ_ONLY_SUPERVISOR / SPECIAL_INSPECTOR).
+ */
+export function canViewExecutionSteps(
+  user: CurrentUser | null,
+  file: Pick<ExecutionFile, 'assignedUserId'> | null,
+): boolean {
+  if (!user || !file) return false;
   if (isAssignedToExecutionFile(user, file)) return true;
-  if (hasRole(user, 'ADMIN_CLERK') && hasDelegatedPermission(user, 'ADD_EXECUTION_STEP')) return true;
-  return false;
+  return hasRole(user, 'CENTRAL_SUPERVISOR')
+      || hasRole(user, 'READ_ONLY_SUPERVISOR')
+      || hasRole(user, 'SPECIAL_INSPECTOR');
 }
 
 /**

@@ -24,17 +24,23 @@ public class ExecutionController {
         return service.promoteCaseToExecution(caseId, req, actor);
     }
 
+    /**
+     * PR-12 (customer feedback E-2 / Q-A): {@code courtId} acts as the
+     * "region" filter. The customer's regions (Latakia / Jableh / Qardaha /
+     * Hffeh) map onto courts within the same branch — see Q-A.
+     */
     @GetMapping("/execution-files")
     public List<ExecutionFileDto> list(
             @RequestParam(value = "branchId",     required = false) Long branchId,
             @RequestParam(value = "departmentId", required = false) Long departmentId,
+            @RequestParam(value = "courtId",      required = false) Long courtId,
             @RequestParam(value = "status",       required = false) ExecutionFileStatus status,
             @RequestParam(value = "year",         required = false) Integer year,
             @RequestParam(value = "page",         defaultValue = "0")  int page,
             @RequestParam(value = "size",         defaultValue = "20") int size
     ) {
         Long actor = SecurityUtils.currentUserOrThrow().userId();
-        return service.listFiles(branchId, departmentId, status, year, page, size, actor);
+        return service.listFiles(branchId, departmentId, courtId, status, year, page, size, actor);
     }
 
     @GetMapping("/execution-files/{id}")
