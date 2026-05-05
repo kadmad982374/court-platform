@@ -159,8 +159,23 @@ public class LitigationCaseService {
         throw new ForbiddenException("Case is outside actor read scope");
     }
 
+    /**
+     * PR-9 (customer feedback A-3 / B-1 / C-1 / D-1) — listCases now accepts
+     * explicit filter params on top of the implicit role scope (D-021).
+     * All filter params are optional. The role scope is ALWAYS applied first
+     * (security invariant); explicit filters narrow further with AND.
+     *
+     * @param branchId      restrict to cases created in this branch
+     * @param departmentId  restrict to cases created in this department
+     * @param courtId       restrict to cases created in this court
+     * @param q             free-text search; matches publicEntityName,
+     *                      opponentName, or originalBasisNumber (case-insensitive
+     *                      LIKE %q%)
+     */
     @Transactional(readOnly = true)
-    public PageResponse<LitigationCaseDto> listCases(int page, int size, Long actorUserId) {
+    public PageResponse<LitigationCaseDto> listCases(int page, int size, Long actorUserId,
+                                                     Long branchId, Long departmentId, Long courtId,
+                                                     String q) {
         if (size <= 0) size = 20;
         if (size > 100) size = 100;
         if (page < 0) page = 0;
@@ -168,6 +183,12 @@ public class LitigationCaseService {
 
         AuthorizationContext actor = authorizationService.loadContext(actorUserId);
         Specification<LitigationCase> spec = buildScopeSpec(actor);
+        Specification<LitigationCase> filter = buildFilterSpec(branchId, departmentId, courtId, q);
+        if (spec != null && filter != null) {
+            spec = spec.and(filter);
+        } else if (filter != null) {
+            spec = filter;
+        }
 
         Page<LitigationCase> p = (spec == null)
                 ? Page.empty(pageable)
@@ -186,6 +207,40 @@ public class LitigationCaseService {
                 .map(lc -> toDto(lc, stagesByCase.getOrDefault(lc.getId(), List.of())))
                 .toList();
         return new PageResponse<>(content, p.getNumber(), p.getSize(), p.getTotalElements(), p.getTotalPages());
+    }
+
+    /**
+     * PR-9 — explicit filter spec (branch/dept/court/q) applied on top of the
+     * role scope. Returns null when nothing to filter, so the caller can skip
+     * the {@code .and()}.
+     */
+    private Specification<LitigationCase> buildFilterSpec(Long branchId, Long departmentId,
+                                                          Long courtId, String q) {
+        boolean hasQ = q != null && !q.isBlank();
+        if (branchId == null && departmentId == null && courtId == null && !hasQ) {
+            return null;
+        }
+        return (root, query, cb) -> {
+            List<Predicate> ands = new ArrayList<>();
+            if (branchId != null) {
+                ands.add(cb.equal(root.get("createdBranchId"), branchId));
+            }
+            if (departmentId != null) {
+                ands.add(cb.equal(root.get("createdDepartmentId"), departmentId));
+            }
+            if (courtId != null) {
+                ands.add(cb.equal(root.get("createdCourtId"), courtId));
+            }
+            if (hasQ) {
+                String pattern = "%" + q.trim().toLowerCase() + "%";
+                ands.add(cb.or(
+                        cb.like(cb.lower(root.get("publicEntityName")), pattern),
+                        cb.like(cb.lower(root.get("opponentName")), pattern),
+                        cb.like(cb.lower(root.get("originalBasisNumber")), pattern)
+                ));
+            }
+            return cb.and(ands.toArray(new Predicate[0]));
+        };
     }
 
     /** يبني Specification فلترة حسب نطاق الصلاحية — D-021. */

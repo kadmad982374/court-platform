@@ -10,8 +10,28 @@ import type {
   UpdateCaseBasicDataRequest,
 } from '@/shared/types/domain';
 
-export async function listCases(page: number, size: number): Promise<PageResponse<LitigationCase>> {
-  const r = await http.get<PageResponse<LitigationCase>>('/cases', { params: { page, size } });
+/** PR-9 (customer feedback A-3 / B-1 / C-1 / D-1) — explicit filters layered on
+ *  top of the implicit role scope. All four are optional. The empty-string
+ *  shape is preferred over undefined keys to keep the URL deterministic. */
+export interface ListCasesFilters {
+  branchId?: number;
+  departmentId?: number;
+  courtId?: number;
+  /** free-text search across publicEntityName / opponentName / originalBasisNumber */
+  q?: string;
+}
+
+export async function listCases(
+  page: number,
+  size: number,
+  filters: ListCasesFilters = {},
+): Promise<PageResponse<LitigationCase>> {
+  const params: Record<string, string | number> = { page, size };
+  if (filters.branchId     != null) params.branchId     = filters.branchId;
+  if (filters.departmentId != null) params.departmentId = filters.departmentId;
+  if (filters.courtId      != null) params.courtId      = filters.courtId;
+  if (filters.q && filters.q.trim()) params.q = filters.q.trim();
+  const r = await http.get<PageResponse<LitigationCase>>('/cases', { params });
   return r.data;
 }
 
