@@ -65,4 +65,16 @@ describe('navItems / visibleItems', () => {
     expect(it).toBeTruthy();
     expect(it!.section).toBe('عام');
   });
+
+  it('PR-14 (A-1 / Q-G) — "إرسال إشعار" entry only for CENTRAL_SUPERVISOR / BRANCH_HEAD / SECTION_HEAD', () => {
+    const it = NAV_ITEMS.find((n) => n.to === '/notifications/broadcast');
+    expect(it).toBeTruthy();
+    expect(it!.section).toBe('عام');
+    for (const r of ['CENTRAL_SUPERVISOR', 'BRANCH_HEAD', 'SECTION_HEAD'] as const) {
+      expect(visibleItems([r]).map((i) => i.to)).toContain('/notifications/broadcast');
+    }
+    for (const r of ['ADMIN_CLERK', 'STATE_LAWYER', 'READ_ONLY_SUPERVISOR', 'SPECIAL_INSPECTOR'] as const) {
+      expect(visibleItems([r]).map((i) => i.to)).not.toContain('/notifications/broadcast');
+    }
+  });
 });

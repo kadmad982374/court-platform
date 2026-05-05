@@ -18,6 +18,7 @@ import { ResolvedRegisterPage } from '@/features/resolvedregister/ResolvedRegist
 import { ExecutionFilesPage } from '@/features/execution/ExecutionFilesPage';
 import { ExecutionFileDetailPage } from '@/features/execution/ExecutionFileDetailPage';
 import { NotificationsPage } from '@/features/notifications/NotificationsPage';
+import { BroadcastPage } from '@/features/notifications/BroadcastPage';
 import { LegalLibraryItemDetailPage } from '@/pages/LegalLibraryItemDetailPage';
 import { PublicEntityDetailPage } from '@/pages/PublicEntityDetailPage';
 import { CircularDetailPage } from '@/pages/CircularDetailPage';
@@ -62,7 +63,10 @@ export function AppRouter() {
           <Route path="/execution-files/:id"   element={<ExecutionFileDetailPage />} />
 
           {/* Phase 10 — notifications (D-038) */}
-          <Route path="/notifications"         element={<NotificationsPage />} />
+          <Route path="/notifications"          element={<NotificationsPage />} />
+          {/* PR-14 (customer feedback A-1 / Q-G expansion) — broadcast composer.
+              Visual gate; backend re-validates per request. */}
+          <Route path="/notifications/broadcast" element={<BroadcastPage />} />
 
           {/* Phase 7 reference (kept) — Phase 10 added detail pages */}
           <Route path="/legal-library"             element={<LegalLibraryPage />} />
