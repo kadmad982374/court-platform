@@ -7,9 +7,11 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import sy.gov.sla.access.application.AuthorizationService;
 import sy.gov.sla.access.domain.MembershipType;
+import sy.gov.sla.execution.application.CasePromotedToExecutionEvent;
 import sy.gov.sla.litigationregistration.application.CaseRegisteredEvent;
 import sy.gov.sla.litigationregistration.application.LawyerAssignedEvent;
 import sy.gov.sla.notifications.application.NotificationService;
+import sy.gov.sla.stagetransition.application.CasePromotedToAppealEvent;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -62,6 +64,51 @@ public class NotificationEventListeners {
                 "إسناد دعوى جديدة لك",
                 "تم إسناد الدعوى رقم " + ev.caseId() + " إليك.",
                 "LITIGATION_CASE", ev.caseId());
+    }
+
+    /**
+     * PR-8 (customer feedback C-4) — promote-to-appeal notifies the destination
+     * appeal department's SECTION_HEAD + ADMIN_CLERK, so they know a new file
+     * just landed in their section.
+     */
+    @EventListener
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onCasePromotedToAppeal(CasePromotedToAppealEvent ev) {
+        Set<Long> recipients = new LinkedHashSet<>();
+        recipients.addAll(authorization.findActiveMemberUserIds(
+                ev.appealBranchId(), ev.appealDepartmentId(), MembershipType.SECTION_HEAD));
+        recipients.addAll(authorization.findActiveMemberUserIds(
+                ev.appealBranchId(), ev.appealDepartmentId(), MembershipType.ADMIN_CLERK));
+
+        String title = "ترقية دعوى إلى الاستئناف";
+        String body = "تمت ترقية الدعوى رقم " + ev.caseId()
+                + " إلى الاستئناف — مرحلة جديدة #" + ev.newAppealStageId() + ".";
+        for (Long uid : recipients) {
+            notifications.createInternal(uid, "CASE_PROMOTED_TO_APPEAL", title, body,
+                    "CASE_STAGE", ev.newAppealStageId());
+        }
+    }
+
+    /**
+     * PR-8 (customer feedback C-4) — promote-to-execution notifies the destination
+     * execution department's SECTION_HEAD + ADMIN_CLERK with the new ExecutionFile id.
+     */
+    @EventListener
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onCasePromotedToExecution(CasePromotedToExecutionEvent ev) {
+        Set<Long> recipients = new LinkedHashSet<>();
+        recipients.addAll(authorization.findActiveMemberUserIds(
+                ev.executionBranchId(), ev.executionDepartmentId(), MembershipType.SECTION_HEAD));
+        recipients.addAll(authorization.findActiveMemberUserIds(
+                ev.executionBranchId(), ev.executionDepartmentId(), MembershipType.ADMIN_CLERK));
+
+        String title = "ترقية دعوى إلى التنفيذ";
+        String body = "تمت ترقية الدعوى رقم " + ev.caseId()
+                + " إلى ملف تنفيذي #" + ev.executionFileId() + ".";
+        for (Long uid : recipients) {
+            notifications.createInternal(uid, "CASE_PROMOTED_TO_EXECUTION", title, body,
+                    "EXECUTION_FILE", ev.executionFileId());
+        }
     }
 
     /** يكشف للاختبارات قائمة المستلمين المتوقعة دون نشر حدث (Optional). */

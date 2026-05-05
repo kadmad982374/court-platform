@@ -66,8 +66,15 @@ public class StageTransitionService {
         // الكتابة الذرّية.
         var newStage = caseStagePort.promoteCurrentStageToAppeal(caseId, actorUserId);
 
+        // PR-8 (C-4): نقرأ معلومات المرحلة الجديدة (الفرع والقسم) لإثرائها على
+        // الحدث، حتى يستطيع مستمع الإشعارات إخطار رئيس قسم الاستئناف مباشرة.
+        var newStageInfo = caseStagePort.find(newStage.newStageId())
+                .orElseThrow(() -> new IllegalStateException(
+                        "newly-created appeal stage not found: " + newStage.newStageId()));
+
         events.publishEvent(new CasePromotedToAppealEvent(
                 caseId, newStage.parentStageId(), newStage.newStageId(),
+                newStageInfo.branchId(), newStageInfo.departmentId(),
                 actorUserId, Instant.now()));
 
         UserActionLog.action("promoted case #{} to appeal — new stage #{}", caseId, newStage.newStageId());

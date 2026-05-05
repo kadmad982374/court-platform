@@ -1,8 +1,13 @@
-// Phase 10 — RemindersSection (Phase 6 D-037).
+// Phase 10 — RemindersSection (Phase 6 D-037, extended in PR-8b for Q-G).
 //
-// Mounted inside CaseDetailPage. Shows ONLY the current user's reminders for
-// the case (backend-filtered) and lets them create new ones / mark them
-// DONE / CANCELLED. Backend rejects any cross-owner action.
+// Mounted inside CaseDetailPage.
+//
+// PR-8b — customer feedback Q-G:
+//   - STATE_LAWYER: own reminders only (existing). Sees Create + Done/Cancel.
+//   - Manager (SECTION_HEAD / BRANCH_HEAD / ADMIN_CLERK / CENTRAL_SUPERVISOR
+//     / READ_ONLY_SUPERVISOR): ALL reminders on the case as oversight, no
+//     Create button, no row actions. Backend already widens the list contract;
+//     the frontend just gates the writeable affordances.
 
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,6 +19,8 @@ import {
   listReminders,
   updateReminderStatus,
 } from './api';
+import { useAuth } from '@/features/auth/AuthContext';
+import { hasRole } from '@/features/auth/permissions';
 import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { Spinner } from '@/shared/ui/Spinner';
 import { Button } from '@/shared/ui/Button';
@@ -34,7 +41,12 @@ interface Props {
 
 export function RemindersSection({ caseId }: Props) {
   const qc = useQueryClient();
+  const { user } = useAuth();
   const queryKey = ['cases', caseId, 'reminders'] as const;
+
+  // PR-8b (Q-G): only state lawyers can author / mutate reminders.
+  // Managers see the section as oversight (read-only).
+  const isLawyer = hasRole(user, 'STATE_LAWYER');
 
   const listQ = useQuery({
     queryKey,
@@ -64,10 +76,13 @@ export function RemindersSection({ caseId }: Props) {
     onError: (e) => setActionError(extractApiErrorMessage(e)),
   });
 
+  // Section title varies by viewing mode — clearer to the user what they're seeing.
+  const cardTitle = isLawyer ? 'تذكيراتي على هذه الدعوى' : 'تذكيرات المحامي على هذه الدعوى';
+
   return (
     <Card className="mt-4">
       <CardHeader>
-        <CardTitle>تذكيراتي على هذه الدعوى</CardTitle>
+        <CardTitle>{cardTitle}</CardTitle>
       </CardHeader>
       <CardBody>
         {actionError && (
@@ -77,15 +92,22 @@ export function RemindersSection({ caseId }: Props) {
         )}
 
         <p className="mb-3 text-xs text-slate-500">
-          التذكيرات شخصية (D-037): يَرى كل مستخدم تذكيراته فقط، ولا يمكن
-          مشاركتها مع آخرين. التحويل إلى DONE أو CANCELLED للمالك فقط.
+          {isLawyer ? (
+            <>التذكيرات شخصية (D-037): يَرى كل محامٍ تذكيراته فقط على الدعاوى التي يتابعها.
+            التحويل إلى تمَّ أو إلغاء للمالك فقط.</>
+          ) : (
+            <>عرض رقابي للقراءة فقط: تظهر هنا تذكيرات المحامي المتابع للدعوى. لا يمكنك
+            إنشاء أو تعديل تذكيرات مستخدم آخر — هذه صلاحية المحامي صاحب الدعوى وحده.</>
+          )}
         </p>
 
-        <div className="mb-3">
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            إنشاء تذكير
-          </Button>
-        </div>
+        {isLawyer && (
+          <div className="mb-3">
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              إنشاء تذكير
+            </Button>
+          </div>
+        )}
 
         {listQ.isLoading && <Spinner className="text-brand-600" />}
         {listQ.isError && (
@@ -113,8 +135,14 @@ export function RemindersSection({ caseId }: Props) {
                   <TD>{REMINDER_STATUS_LABEL_AR[r.status]}</TD>
                   <TD className="text-xs text-slate-500">{r.createdAt}</TD>
                   <TD className="text-end">
-                    <ReminderRowActions r={r} pending={statusMut.isPending}
-                      onSetStatus={(status) => statusMut.mutate({ id: r.id, status })} />
+                    {/* PR-8b: managers see rows but no actions; only the
+                        reminder's owner can transition its status. */}
+                    {user?.id === r.ownerUserId ? (
+                      <ReminderRowActions r={r} pending={statusMut.isPending}
+                        onSetStatus={(status) => statusMut.mutate({ id: r.id, status })} />
+                    ) : (
+                      <span className="text-xs text-slate-400">—</span>
+                    )}
                   </TD>
                 </TR>
               ))}
@@ -122,12 +150,14 @@ export function RemindersSection({ caseId }: Props) {
           </Table>
         )}
 
-        <CreateReminderModal
-          open={createOpen}
-          onClose={() => { setCreateOpen(false); setActionError(null); }}
-          submitting={createMut.isPending}
-          onSubmit={(body) => createMut.mutate(body)}
-        />
+        {isLawyer && (
+          <CreateReminderModal
+            open={createOpen}
+            onClose={() => { setCreateOpen(false); setActionError(null); }}
+            submitting={createMut.isPending}
+            onSubmit={(body) => createMut.mutate(body)}
+          />
+        )}
       </CardBody>
     </Card>
   );

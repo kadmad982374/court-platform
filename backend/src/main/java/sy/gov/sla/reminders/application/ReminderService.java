@@ -73,11 +73,29 @@ public class ReminderService {
         return toDto(saved);
     }
 
+    /**
+     * PR-8b (customer feedback Q-G) — list semantics now depend on the actor's
+     * role:
+     * <ul>
+     *   <li>STATE_LAWYER → only their own reminders (existing D-037 contract).</li>
+     *   <li>Anyone else with read access (SECTION_HEAD, ADMIN_CLERK, BRANCH_HEAD,
+     *       CENTRAL_SUPERVISOR, READ_ONLY_SUPERVISOR) → ALL reminders for the
+     *       case (oversight read-only). The frontend gates Create / Done /
+     *       Cancel on {@code row.ownerUserId == currentUserId}, so a manager
+     *       cannot mutate a lawyer's reminder. Backend write paths
+     *       ({@link #create}, {@link #updateStatus}) still enforce ownership —
+     *       this change only widens the read view.</li>
+     * </ul>
+     */
     @Transactional(readOnly = true)
     public List<ReminderDto> list(Long caseId, Long actorUserId) {
         loadCaseAndRequireRead(caseId, actorUserId);
-        return repo.findByLitigationCaseIdAndOwnerUserIdOrderByReminderAtAsc(caseId, actorUserId)
-                .stream().map(this::toDto).toList();
+        AuthorizationContext ctx = authorizationService.loadContext(actorUserId);
+        boolean lawyerScope = ctx.isStateLawyer();
+        List<Reminder> reminders = lawyerScope
+                ? repo.findByLitigationCaseIdAndOwnerUserIdOrderByReminderAtAsc(caseId, actorUserId)
+                : repo.findByLitigationCaseIdOrderByReminderAtAsc(caseId);
+        return reminders.stream().map(this::toDto).toList();
     }
 
     public ReminderDto updateStatus(Long reminderId, ReminderStatus newStatus, Long actorUserId) {

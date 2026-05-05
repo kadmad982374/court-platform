@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/api/http';
 import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card';
@@ -35,6 +36,7 @@ async function fetchResolved(f: Filters): Promise<ResolvedRegisterEntry[]> {
 }
 
 export function ResolvedRegisterPage() {
+  const navigate = useNavigate();
   const [pending, setPending] = useState<Filters>({});
   const [applied, setApplied] = useState<Filters>({});
 
@@ -120,6 +122,10 @@ export function ResolvedRegisterPage() {
                     <TH>رقم القرار</TH>
                     <TH>تاريخ القرار</TH>
                     <TH>نوع القرار</TH>
+                    {/* PR-8 (customer feedback A-5/B-4): row open action so admin
+                        and branch_head can drill into a resolved case to read
+                        its stages + attachments. */}
+                    <TH className="text-end">إجراء</TH>
                   </TR>
                 </THead>
                 <TBody>
@@ -135,6 +141,15 @@ export function ResolvedRegisterPage() {
                       <TD>{e.decisionDate}</TD>
                       <TD>
                         {DECISION_TYPE_LABEL_AR[e.decisionType as DecisionType] ?? e.decisionType}
+                      </TD>
+                      <TD className="text-end">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => navigate(`/cases/${e.caseId}`)}
+                        >
+                          فتح
+                        </Button>
                       </TD>
                     </TR>
                   ))}
