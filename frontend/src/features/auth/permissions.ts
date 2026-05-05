@@ -238,6 +238,37 @@ export function canAssignLawyerForCase(
 }
 
 /**
+ * PR-11 (customer feedback C-6 / blueprint C-6) — correct a finalized case.
+ *
+ * Q-D rule from the customer: correction rights are anchored to the CURRENT
+ * stage's (branch, dept). After promotion the previous stage becomes
+ * read-only and rights move to the destination dept's section head.
+ *
+ * Visual gate (backend re-validates):
+ *   - Stage MUST be FINALIZED and NOT read-only.
+ *   - Actor must be SECTION_HEAD of the stage's (branch, dept), OR
+ *     ADMIN_CLERK with CORRECT_FINALIZED_CASE delegation.
+ */
+export function canCorrectFinalizedCase(
+  user: CurrentUser | null,
+  stage: Pick<CaseStage | Stage, 'branchId' | 'departmentId' | 'stageStatus' | 'readOnly'> | null,
+): boolean {
+  if (!user || !stage) return false;
+  if (stage.readOnly) return false;
+  if (stage.stageStatus !== 'FINALIZED') return false;
+  const inDept = (mt: 'SECTION_HEAD' | 'ADMIN_CLERK') =>
+    user.departmentMemberships.some(
+      (m) =>
+        m.active &&
+        m.branchId === stage.branchId &&
+        m.departmentId === stage.departmentId &&
+        m.membershipType === mt,
+    );
+  if (inDept('SECTION_HEAD')) return true;
+  return inDept('ADMIN_CLERK') && hasDelegatedPermission(user, 'CORRECT_FINALIZED_CASE');
+}
+
+/**
  * UI sub-phase B — `/admin/users` minimal.
  *
  * Visual-only gate for the `/admin/users` route + sidebar entry.

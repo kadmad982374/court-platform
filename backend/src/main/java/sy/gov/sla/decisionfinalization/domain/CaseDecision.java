@@ -19,23 +19,31 @@ public class CaseDecision {
     @Column(name = "case_stage_id", nullable = false, unique = true, updatable = false)
     private Long caseStageId;
 
-    @Column(name = "decision_number", nullable = false, length = 64, updatable = false)
+    /** PR-11 (customer feedback C-6): mutable so a section head may correct it
+     *  via {@code PATCH /api/v1/cases/{id}/correct} when the stage is still the
+     *  current (non-promoted) one. Wire-level guard lives in the service. */
+    @Column(name = "decision_number", nullable = false, length = 64)
     private String decisionNumber;
 
-    @Column(name = "decision_date", nullable = false, updatable = false)
+    /** PR-11: see decisionNumber. */
+    @Column(name = "decision_date", nullable = false)
     private LocalDate decisionDate;
 
+    /** PR-11: see decisionNumber. */
     @Enumerated(EnumType.STRING)
-    @Column(name = "decision_type", nullable = false, length = 32, updatable = false)
+    @Column(name = "decision_type", nullable = false, length = 32)
     private DecisionType decisionType;
 
-    @Column(name = "adjudged_amount", precision = 18, scale = 2, updatable = false)
+    /** PR-11: see decisionNumber. Optional — present only for monetary decisions. */
+    @Column(name = "adjudged_amount", precision = 18, scale = 2)
     private BigDecimal adjudgedAmount;
 
-    @Column(name = "currency_code", length = 3, updatable = false)
+    /** PR-11: see decisionNumber. */
+    @Column(name = "currency_code", length = 3)
     private String currencyCode;
 
-    @Column(name = "summary_notes", columnDefinition = "TEXT", updatable = false)
+    /** PR-11: see decisionNumber. */
+    @Column(name = "summary_notes", columnDefinition = "TEXT")
     private String summaryNotes;
 
     @Column(name = "finalized_by_user_id", nullable = false, updatable = false)

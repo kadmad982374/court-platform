@@ -18,6 +18,8 @@ import sy.gov.sla.common.exception.BadRequestException;
 import sy.gov.sla.common.exception.ForbiddenException;
 import sy.gov.sla.common.exception.NotFoundException;
 import sy.gov.sla.common.logging.UserActionLog;
+import sy.gov.sla.decisionfinalization.domain.CaseDecision;
+import sy.gov.sla.decisionfinalization.infrastructure.CaseDecisionRepository;
 import sy.gov.sla.litigationregistration.api.*;
 import sy.gov.sla.litigationregistration.domain.*;
 import sy.gov.sla.litigationregistration.infrastructure.CaseStageRepository;
@@ -37,6 +39,7 @@ public class LitigationCaseService {
 
     private final LitigationCaseRepository caseRepo;
     private final CaseStageRepository stageRepo;
+    private final CaseDecisionRepository decisionRepo; // PR-11
     private final OrganizationService organizationService;
     private final AuthorizationService authorizationService;
     private final ApplicationEventPublisher events;
@@ -321,6 +324,79 @@ public class LitigationCaseService {
 
         lc.setUpdatedAt(Instant.now());
         UserActionLog.action("updated basic data of case #{}", caseId);
+        return toDto(lc, stageRepo.findByLitigationCaseId(caseId));
+    }
+
+    // ==========================================================
+    // Correct finalized case (PR-11 / blueprint C-6 / customer Q-D)
+    // ==========================================================
+    /**
+     * Section-head correction of a FINALIZED case that has not been promoted
+     * past its current stage. Per the customer's Q-D answer:
+     * <ul>
+     *   <li>Auth uses the CURRENT stage's (branch, dept), so correction rights
+     *       transfer to the destination dept's section head on promotion.</li>
+     *   <li>Hearing history is NEVER touched (D-022 append-only invariant).</li>
+     *   <li>Once promoted, the case's previous stages become read-only and
+     *       this endpoint refuses with STAGE_READ_ONLY.</li>
+     * </ul>
+     * Required permission: SECTION_HEAD of the current stage's (branch, dept),
+     * OR ADMIN_CLERK with {@code CORRECT_FINALIZED_CASE} delegation.
+     */
+    public LitigationCaseDto correctFinalizedCase(Long caseId,
+                                                  CorrectFinalizedCaseRequest req,
+                                                  Long actorUserId) {
+        LitigationCase lc = caseRepo.findById(caseId)
+                .orElseThrow(() -> new NotFoundException("Case not found: " + caseId));
+
+        if (lc.getCurrentStageId() == null) {
+            throw new BadRequestException("NO_CURRENT_STAGE", "Case has no current stage");
+        }
+        CaseStage stage = stageRepo.findById(lc.getCurrentStageId())
+                .orElseThrow(() -> new BadRequestException("NO_CURRENT_STAGE",
+                        "Case has no current stage"));
+
+        if (stage.isReadOnly()) {
+            // Once promoted, correction rights have transferred away.
+            throw new BadRequestException("STAGE_READ_ONLY",
+                    "Current stage is read-only — correction rights have moved to the destination department");
+        }
+        if (stage.getStageStatus() != StageStatus.FINALIZED) {
+            // Pre-finalize, use updateBasicData. Correction is for resolved register only.
+            throw new BadRequestException("STAGE_NOT_FINALIZED",
+                    "Correction is only allowed on finalized stages — use updateBasicData for in-progress cases");
+        }
+
+        // Auth — uses the CURRENT stage's branch/dept (Q-D rule).
+        AuthorizationContext actor = authorizationService.loadContext(actorUserId);
+        authorizationService.requireCaseManagement(actor, stage.getBranchId(),
+                stage.getDepartmentId(), DelegatedPermissionCode.CORRECT_FINALIZED_CASE);
+
+        // Apply patch fields (only those supplied).
+        if (req.originalBasisNumber() != null) lc.setOriginalBasisNumber(req.originalBasisNumber());
+        if (req.basisYear() != null) lc.setBasisYear(req.basisYear());
+        if (req.stageBasisNumber() != null) stage.setStageBasisNumber(req.stageBasisNumber());
+        if (req.stageYear() != null) stage.setStageYear(req.stageYear());
+
+        // Decision corrections — load decision attached to the current (finalized) stage.
+        boolean decisionTouched = req.decisionNumber() != null
+                || req.decisionDate() != null
+                || req.decisionType() != null
+                || req.adjudgedAmount() != null
+                || req.currencyCode() != null;
+        if (decisionTouched) {
+            CaseDecision decision = decisionRepo.findByCaseStageId(stage.getId())
+                    .orElseThrow(() -> new BadRequestException("DECISION_NOT_FOUND",
+                            "No decision exists for this finalized stage"));
+            if (req.decisionNumber() != null) decision.setDecisionNumber(req.decisionNumber());
+            if (req.decisionDate() != null)   decision.setDecisionDate(req.decisionDate());
+            if (req.decisionType() != null)   decision.setDecisionType(req.decisionType());
+            if (req.adjudgedAmount() != null) decision.setAdjudgedAmount(req.adjudgedAmount());
+            if (req.currencyCode() != null)   decision.setCurrencyCode(req.currencyCode());
+        }
+
+        lc.setUpdatedAt(Instant.now());
+        UserActionLog.action("corrected finalized case #{} (basis/decision fields)", caseId);
         return toDto(lc, stageRepo.findByLitigationCaseId(caseId));
     }
 

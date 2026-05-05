@@ -2,6 +2,7 @@ import { http } from '@/shared/api/http';
 import type {
   CaseStage,
   CreateCaseRequest,
+  DecisionType,
   ExecutionFile,
   LitigationCase,
   PageResponse,
@@ -69,6 +70,30 @@ export async function updateCaseBasicData(
   body: UpdateCaseBasicDataRequest,
 ): Promise<LitigationCase> {
   const r = await http.put<LitigationCase>(`/cases/${caseId}/basic-data`, body);
+  return r.data;
+}
+
+/** PR-11 (customer feedback C-6) — patch payload for finalized-case correction. */
+export interface CorrectFinalizedCaseRequest {
+  originalBasisNumber?: string;
+  basisYear?: number;
+  stageBasisNumber?: string;
+  stageYear?: number;
+  decisionNumber?: string;
+  /** ISO yyyy-MM-dd. */
+  decisionDate?: string;
+  decisionType?: DecisionType;
+  /** BigDecimal serialised as string. */
+  adjudgedAmount?: string;
+  /** ISO 4217 alpha-3. */
+  currencyCode?: string;
+}
+
+export async function correctFinalizedCase(
+  caseId: number,
+  body: CorrectFinalizedCaseRequest,
+): Promise<LitigationCase> {
+  const r = await http.patch<LitigationCase>(`/cases/${caseId}/correct`, body);
   return r.data;
 }
 
