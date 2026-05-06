@@ -10,6 +10,12 @@ export interface CurrencyTotal {
 
 export interface CaseSummary {
   totalCases: number;
+  /**
+   * PR-13b — mutually-exclusive bucket per case (sum equals totalCases).
+   * Keys: ACTIVE | RESOLVED_NO_DECISION | FOR_ENTITY | AGAINST_ENTITY |
+   * SETTLEMENT | NON_FINAL. Used by the dashboard pie.
+   */
+  byCurrentOutcome: Record<string, number>;
   byLifecycle: Record<string, number>;
   byDecisionType: Record<string, number>;
   adjudgedTotalsByCurrency: CurrencyTotal[];

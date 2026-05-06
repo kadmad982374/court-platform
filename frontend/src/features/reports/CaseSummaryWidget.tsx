@@ -1,14 +1,15 @@
-// PR-13 (customer feedback A-2 / Q-B / Q-F).
+// PR-13 / PR-13b (customer feedback A-2 / Q-B / Q-F).
 //
 // Pie chart + money totals widget. Reused on the dashboard (home) AND the
 // cases page per Q-B. The slices follow the customer's example pie:
 //   نشطة (Active) / مفصولة بدون قرار (Resolved no-decision) /
 //   لصالح الدولة / ضد الدولة / صلح / غير نهائي.
 //
-// "Active" = ACTIVE + IN_APPEAL + IN_EXECUTION (case is still in motion).
-// The four decision-type slices come from finalized stages; the
-// "مفصولة بدون قرار" slice catches CLOSED cases that lack a decision row
-// yet (rare — usually only ARCHIVED / data-cleanup cases).
+// PR-13b: switched to `byCurrentOutcome` from the backend, which is a
+// mutually-exclusive bucket per case (sum equals totalCases). The earlier
+// "Active = sum of lifecycles" math double-counted cases whose old stages
+// already had decisions (e.g. an appeal-finalized case showed up in BOTH
+// the Active slice and FOR_ENTITY/AGAINST_ENTITY).
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -35,23 +36,47 @@ interface Slice {
 }
 
 function buildSlices(s: CaseSummary): Slice[] {
-  const lc = s.byLifecycle;
-  const dt = s.byDecisionType;
-
-  const active = (lc.ACTIVE ?? 0) + (lc.IN_APPEAL ?? 0) + (lc.IN_EXECUTION ?? 0) + (lc.NEW ?? 0);
-  const closed = lc.CLOSED ?? 0;
-  const decided = (dt.FOR_ENTITY ?? 0) + (dt.AGAINST_ENTITY ?? 0)
-                + (dt.SETTLEMENT ?? 0) + (dt.NON_FINAL ?? 0);
-  const resolvedNoDecision = Math.max(0, closed - decided);
-
+  const o = s.byCurrentOutcome ?? {};
   return [
-    { key: 'active',        label: 'نشطة',                value: active,             color: SLICE_COLORS.active        },
-    { key: 'forEntity',     label: 'لصالح الدولة',         value: dt.FOR_ENTITY ?? 0, color: SLICE_COLORS.forEntity     },
-    { key: 'againstEntity', label: 'ضد الدولة',            value: dt.AGAINST_ENTITY ?? 0, color: SLICE_COLORS.againstEntity },
-    { key: 'settlement',    label: 'صلح',                 value: dt.SETTLEMENT ?? 0, color: SLICE_COLORS.settlement    },
-    { key: 'nonFinal',      label: 'غير نهائي',            value: dt.NON_FINAL ?? 0,  color: SLICE_COLORS.nonFinal      },
-    { key: 'resolved',      label: 'مفصولة بدون قرار',     value: resolvedNoDecision, color: SLICE_COLORS.resolved      },
+    { key: 'active',        label: 'نشطة',                value: o.ACTIVE ?? 0,                color: SLICE_COLORS.active        },
+    { key: 'forEntity',     label: 'لصالح الدولة',         value: o.FOR_ENTITY ?? 0,            color: SLICE_COLORS.forEntity     },
+    { key: 'againstEntity', label: 'ضد الدولة',            value: o.AGAINST_ENTITY ?? 0,        color: SLICE_COLORS.againstEntity },
+    { key: 'settlement',    label: 'صلح',                 value: o.SETTLEMENT ?? 0,            color: SLICE_COLORS.settlement    },
+    { key: 'nonFinal',      label: 'غير نهائي',            value: o.NON_FINAL ?? 0,             color: SLICE_COLORS.nonFinal      },
+    { key: 'resolved',      label: 'مفصولة بدون قرار',     value: o.RESOLVED_NO_DECISION ?? 0,  color: SLICE_COLORS.resolved      },
   ].filter((s) => s.value > 0);
+}
+
+/**
+ * Custom pie label rendered inside each slice. Shows the percentage so the
+ * user doesn't need to hover. Hidden for tiny slices (< ~5%) to keep the
+ * label legible.
+ */
+function renderSliceLabel(props: {
+  cx?: number; cy?: number; midAngle?: number;
+  innerRadius?: number; outerRadius?: number; percent?: number;
+}): React.ReactNode {
+  const { cx, cy, midAngle, innerRadius, outerRadius, percent } = props;
+  if (cx == null || cy == null || midAngle == null
+      || innerRadius == null || outerRadius == null || percent == null) {
+    return null;
+  }
+  if (percent < 0.05) return null;
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.55;
+  const RAD = Math.PI / 180;
+  const x = cx + radius * Math.cos(-midAngle * RAD);
+  const y = cy + radius * Math.sin(-midAngle * RAD);
+  return (
+    <text
+      x={x} y={y}
+      fill="white"
+      textAnchor="middle"
+      dominantBaseline="central"
+      style={{ fontSize: 12, fontWeight: 600 }}
+    >
+      {Math.round(percent * 100)}٪
+    </text>
+  );
 }
 
 function formatMoney(n: number | string): string {
@@ -69,6 +94,11 @@ export function CaseSummaryWidget({ compact = false }: { compact?: boolean }) {
 
   const slices = useMemo(() => (q.data ? buildSlices(q.data) : []), [q.data]);
   const total = q.data?.totalCases ?? 0;
+  // PR-13b: tooltip percentage now matches the visual wedge — slices sum to
+  // total because byCurrentOutcome is mutually exclusive. Falls back to the
+  // slice sum if backend ever returns inconsistent data.
+  const sliceSum = slices.reduce((acc, s) => acc + s.value, 0);
+  const denom = sliceSum > 0 ? sliceSum : total;
 
   return (
     <Card>
@@ -98,12 +128,14 @@ export function CaseSummaryWidget({ compact = false }: { compact?: boolean }) {
                     outerRadius={compact ? 75 : 90}
                     paddingAngle={2}
                     isAnimationActive={false}
+                    label={renderSliceLabel}
+                    labelLine={false}
                   >
                     {slices.map((s) => <Cell key={s.key} fill={s.color} />)}
                   </Pie>
                   <Tooltip
                     formatter={(v: number, name: string) => [
-                      `${v} (${total > 0 ? Math.round((v / total) * 100) : 0}٪)`, name,
+                      `${v} (${denom > 0 ? Math.round((v / denom) * 100) : 0}٪)`, name,
                     ]}
                   />
                   <Legend verticalAlign="bottom" height={36} />

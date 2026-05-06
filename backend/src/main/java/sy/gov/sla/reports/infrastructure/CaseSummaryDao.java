@@ -38,10 +38,47 @@ public class CaseSummaryDao {
 
     public CaseSummaryDto query(ScopeFilter scope) {
         long total = countCases(scope);
+        Map<String, Long> byOutcome = countByCurrentOutcome(scope);
         Map<String, Long> byLifecycle = countByLifecycle(scope);
         Map<String, Long> byDecisionType = countByDecisionType(scope);
         List<CurrencyTotalDto> adjudged = adjudgedByCurrency(scope);
-        return new CaseSummaryDto(total, byLifecycle, byDecisionType, adjudged);
+        return new CaseSummaryDto(total, byOutcome, byLifecycle, byDecisionType, adjudged);
+    }
+
+    /**
+     * PR-13b — mutually-exclusive bucket per case based on the CURRENT
+     * stage's status and decision (not on lifecycle, which double-counts
+     * cases whose old stages already had decisions). Sum of values equals
+     * {@code totalCases}.
+     *
+     * Buckets:
+     *   - {@code ACTIVE}                — case has no current stage, or its current stage is not FINALIZED.
+     *   - {@code RESOLVED_NO_DECISION}  — current stage is FINALIZED but has no decision row.
+     *   - {@code FOR_ENTITY|AGAINST_ENTITY|SETTLEMENT|NON_FINAL} — current stage's decision type.
+     */
+    private Map<String, Long> countByCurrentOutcome(ScopeFilter scope) {
+        StringBuilder sql = new StringBuilder("""
+                SELECT
+                    CASE
+                        WHEN cs.id IS NULL                  THEN 'ACTIVE'
+                        WHEN cs.stage_status <> 'FINALIZED' THEN 'ACTIVE'
+                        WHEN cd.decision_type IS NULL       THEN 'RESOLVED_NO_DECISION'
+                        ELSE cd.decision_type
+                    END AS k,
+                    COUNT(*) AS c
+                FROM litigation_cases lc
+                LEFT JOIN case_stages cs    ON cs.id = lc.current_stage_id
+                LEFT JOIN case_decisions cd ON cd.case_stage_id = cs.id
+                WHERE 1=1""");
+        MapSqlParameterSource p = new MapSqlParameterSource();
+        appendCaseScope(sql, p, scope);
+        sql.append(" GROUP BY k");
+        Map<String, Long> out = new LinkedHashMap<>();
+        jdbc.query(sql.toString(), p, (rs, i) -> {
+            out.put(rs.getString("k"), rs.getLong("c"));
+            return null;
+        });
+        return out;
     }
 
     private long countCases(ScopeFilter scope) {

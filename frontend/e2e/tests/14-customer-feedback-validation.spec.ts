@@ -31,16 +31,29 @@ test.describe('A — ADMIN (CENTRAL_SUPERVISOR)', () => {
     await loginAs(page, 'admin');
     await page.goto('/dashboard');
 
-    // Widget card title
     await expect(page.getByText('إحصائيات الدعاوى').first()).toBeVisible();
-    // Adjudged totals heading present
     await expect(page.getByText(/مجاميع المبالغ المحكوم بها/).first()).toBeVisible();
-    // Q-F footnote (settlement + costs excluded)
     await expect(
       page.getByText(/مبلغ الصلح والمصاريف غير مشمولة/).first(),
     ).toBeVisible();
-    // Pie chart renders an <svg> from recharts
     await expect(page.locator('.recharts-wrapper svg').first()).toBeVisible();
+
+    // PR-13b: percentage labels now render inside the pie itself (no hover).
+    await expect(page.locator('.recharts-wrapper svg text').filter({ hasText: /٪/ }).first())
+      .toBeVisible();
+
+    // PR-13b: API slices must be mutually exclusive — sum equals totalCases.
+    const summary = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/reports/case-summary', {
+        headers: {
+          Authorization: 'Bearer ' + (localStorage.getItem('sla.accessToken') ?? ''),
+        },
+      });
+      return r.json();
+    });
+    const sum = Object.values(summary.byCurrentOutcome as Record<string, number>)
+      .reduce((a, b) => a + b, 0);
+    expect(sum).toBe(summary.totalCases);
   });
 
   test('A-2 / Q-B — same widget compact on /cases', async ({ page }) => {
