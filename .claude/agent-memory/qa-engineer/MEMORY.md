@@ -1,0 +1,1 @@
+- [Production-Readiness Initiative](project_production_readiness_initiative.md) — 6-phase audit closed 2026-05-04 SHIP-APPROVED; canonical artifacts are DEPLOY.md, docker-compose.prod.yml, Caddyfile.
