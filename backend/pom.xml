@@ -24,7 +24,7 @@
         <jjwt.version>0.12.6</jjwt.version>
         <springdoc.version>2.6.0</springdoc.version>
         <testcontainers.version>1.20.2</testcontainers.version>
-        <jacoco.version>0.8.12</jacoco.version>
+        <jacoco.version>0.8.14</jacoco.version>
         <!--
           PR-1 baseline: thresholds intentionally 0 so the first CI run measures
           the real number without failing. PR-2 ratchets these up to 60/50 once
