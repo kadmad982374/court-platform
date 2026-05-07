@@ -8,8 +8,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
+import org.springframework.validation.MapBindingResult;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -48,7 +48,10 @@ class GlobalExceptionHandlerTest {
     @Test
     @DisplayName("MethodArgumentNotValidException → 400 with field-level details")
     void validation_returns_400_with_field_details() throws Exception {
-        BindingResult br = new BeanPropertyBindingResult(new Object(), "target");
+        // MapBindingResult is lenient — accepts any field name without
+        // requiring a real bean type. BeanPropertyBindingResult is strict and
+        // would fail because plain Object has no 'username'/'password' getter.
+        BindingResult br = new MapBindingResult(new java.util.HashMap<>(), "target");
         br.rejectValue("username", "NotBlank", "must not be blank");
         br.rejectValue("password", "Size", "size must be between 8 and 64");
         MethodParameter param = methodParameter();
@@ -72,7 +75,7 @@ class GlobalExceptionHandlerTest {
     @Test
     @DisplayName("validation with null defaultMessage falls back to 'invalid'")
     void validation_with_null_message_falls_back() throws Exception {
-        BindingResult br = new BeanPropertyBindingResult(new Object(), "target");
+        BindingResult br = new MapBindingResult(new java.util.HashMap<>(), "target");
         // reject with explicit null defaultMessage (4-arg overload: field, errorCode, errorArgs, defaultMessage)
         br.rejectValue("field", "code", null, null);
         MethodArgumentNotValidException ex = new MethodArgumentNotValidException(methodParameter(), br);

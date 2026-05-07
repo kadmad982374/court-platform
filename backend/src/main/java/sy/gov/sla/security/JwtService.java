@@ -91,6 +91,10 @@ public class JwtService {
      * P1-04: enforce issuer + 30s clock skew on every parse.
      */
     public Claims parse(String token) {
+        // Empty / null input is treated the same as a parse failure — return
+        // null rather than letting JJWT's `IllegalArgumentException` escape.
+        // Mirrors the contract documented by JwtServiceTest$Rejection.
+        if (token == null || token.isEmpty()) return null;
         try {
             return Jwts.parser()
                     .requireIssuer(props.issuer())
@@ -99,10 +103,11 @@ public class JwtService {
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();
-        } catch (JwtException e) {
-            // Token-content / signature failure. Log type+message ONLY — never
-            // the raw token (might leak in shared logs). The filter still treats
-            // the request as anonymous.
+        } catch (JwtException | IllegalArgumentException e) {
+            // Token-content / signature failure (JwtException) or malformed /
+            // empty input (IllegalArgumentException from JJWT's hasText assert).
+            // Log type+message ONLY — never the raw token (might leak in shared
+            // logs). The filter still treats the request as anonymous.
             log.warn("JWT parse rejected: type={} message={}",
                     e.getClass().getSimpleName(), e.getMessage());
             return null;
