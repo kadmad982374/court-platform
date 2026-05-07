@@ -191,17 +191,18 @@ describe('permissions', () => {
     expect(canCreateCase(null)).toBe(false);
   });
 
-  it('canEditCaseBasicData: must match the case (branch, dept) — backend D-021/D-004 mirror', () => {
+  it('canEditCaseBasicData: SECTION_HEAD ONLY (PR-15a — clerks blocked even with EDIT_CASE_BASIC_DATA)', () => {
     const head = user(['SECTION_HEAD'], [], 1, [
       { branchId: 1, departmentId: 2, membershipType: 'SECTION_HEAD', active: true },
     ]);
     expect(canEditCaseBasicData(head, { createdBranchId: 1, createdDepartmentId: 2 })).toBe(true);
     expect(canEditCaseBasicData(head, { createdBranchId: 1, createdDepartmentId: 9 })).toBe(false);
 
-    const clerk = user(['ADMIN_CLERK'], [{ code: 'EDIT_CASE_BASIC_DATA', granted: true }], 2, [
+    // Customer feedback round-2: clerk + delegation is now REJECTED.
+    const clerkWithDeleg = user(['ADMIN_CLERK'], [{ code: 'EDIT_CASE_BASIC_DATA', granted: true }], 2, [
       { branchId: 1, departmentId: 2, membershipType: 'ADMIN_CLERK', active: true },
     ]);
-    expect(canEditCaseBasicData(clerk, { createdBranchId: 1, createdDepartmentId: 2 })).toBe(true);
+    expect(canEditCaseBasicData(clerkWithDeleg, { createdBranchId: 1, createdDepartmentId: 2 })).toBe(false);
 
     const clerkNoDeleg = user(['ADMIN_CLERK'], [], 3, [
       { branchId: 1, departmentId: 2, membershipType: 'ADMIN_CLERK', active: true },

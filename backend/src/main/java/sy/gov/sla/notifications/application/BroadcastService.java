@@ -10,12 +10,15 @@ import sy.gov.sla.access.domain.UserDepartmentMembership;
 import sy.gov.sla.access.infrastructure.UserDepartmentMembershipRepository;
 import sy.gov.sla.common.exception.BadRequestException;
 import sy.gov.sla.common.exception.ForbiddenException;
+import sy.gov.sla.common.exception.NotFoundException;
 import sy.gov.sla.common.logging.UserActionLog;
 import sy.gov.sla.identity.domain.User;
 import sy.gov.sla.identity.infrastructure.UserRepository;
 import sy.gov.sla.notifications.api.BroadcastRecipientDto;
 import sy.gov.sla.notifications.api.BroadcastRequest;
 import sy.gov.sla.notifications.api.BroadcastResultDto;
+import sy.gov.sla.organization.domain.Department;
+import sy.gov.sla.organization.infrastructure.DepartmentRepository;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -49,6 +52,9 @@ public class BroadcastService {
     private final AuthorizationService authorizationService;
     private final UserDepartmentMembershipRepository membershipRepo;
     private final UserRepository userRepo;
+    /** Customer feedback round-2 (PR-15a): needed for CUSTOM scope to look up
+     *  the (branchId) implied by each (departmentId). */
+    private final DepartmentRepository departmentRepo;
 
     @Transactional(readOnly = true)
     public List<BroadcastRecipientDto> listEligibleRecipients(Long actorUserId,
@@ -77,6 +83,139 @@ public class BroadcastService {
                 .filter(m -> users.containsKey(m.getUserId()))
                 .map(m -> {
                     User u = users.get(m.getUserId());
+                    return new BroadcastRecipientDto(
+                            u.getId(), u.getFullName(), u.getUsername(),
+                            m.getBranchId(), m.getDepartmentId());
+                })
+                .sorted(Comparator
+                        .comparing((BroadcastRecipientDto r) -> r.fullName(),
+                                Comparator.nullsLast(String::compareTo))
+                        .thenComparing(BroadcastRecipientDto::userId))
+                .toList();
+    }
+
+    /**
+     * Customer feedback round-2 (PR-15a): preview the union of lawyers reachable
+     * by an arbitrary combination of branchIds / departmentIds / userIds. Used by
+     * the new accumulative compose UI to show an accurate live recipient count.
+     * Each id is gated against the caller's reach the same way {@link #broadcast}
+     * does at send time.
+     */
+    @Transactional(readOnly = true)
+    public List<BroadcastRecipientDto> listEligibleRecipientsUnion(Long actorUserId,
+                                                                   List<Long> branchIds,
+                                                                   List<Long> departmentIds,
+                                                                   List<Long> userIds) {
+        AuthorizationContext ctx = authorizationService.loadContext(actorUserId);
+        SenderRole sender = senderRoleOf(ctx);
+
+        List<Long> branches    = branchIds    == null ? List.of() : branchIds;
+        List<Long> departments = departmentIds == null ? List.of() : departmentIds;
+        List<Long> users       = userIds      == null ? List.of() : userIds;
+
+        if (branches.isEmpty() && departments.isEmpty() && users.isEmpty()) {
+            // Empty selection: keep the legacy "show me my reachable lawyers"
+            // behaviour so the picker has something to show.
+            return listEligibleRecipients(actorUserId, null, null);
+        }
+
+        // Customer feedback round-2 (PR-15a iteration 3): same narrowing
+        // semantics as resolveCustom — a section ticked under a branch
+        // restricts that branch to that section. See resolveCustom for the
+        // full reasoning. The preview must compute exactly what broadcast
+        // would send so the count and the recipient list don't disagree.
+
+        Map<Long, UserDepartmentMembership> chosen = new java.util.LinkedHashMap<>();
+
+        java.util.function.Consumer<List<UserDepartmentMembership>> absorb = rows -> {
+            for (UserDepartmentMembership m : rows) {
+                chosen.putIfAbsent(m.getUserId(), m);
+            }
+        };
+
+        // Build (branch → picked depts) map, validating auth as we go.
+        Map<Long, java.util.Set<Long>> deptsByBranch = new java.util.LinkedHashMap<>();
+        for (Long d : departments) {
+            Department dept = departmentRepo.findById(d).orElseThrow(() ->
+                    new NotFoundException("Department not found: " + d));
+            Long branchOfDept = dept.getBranchId();
+            if (sender == SenderRole.BRANCH_HEAD
+                    && !ctx.headOfBranches().contains(branchOfDept)) {
+                throw new ForbiddenException("BRANCH_HEAD cannot preview outside own branch");
+            }
+            if (sender == SenderRole.SECTION_HEAD
+                    && !ctx.isSectionHeadOf(branchOfDept, d)) {
+                throw new ForbiddenException("SECTION_HEAD cannot preview outside own section");
+            }
+            deptsByBranch.computeIfAbsent(branchOfDept, k -> new java.util.LinkedHashSet<>()).add(d);
+        }
+
+        // Per-branch: narrowed if any of its depts are picked, whole branch otherwise.
+        for (Long b : branches) {
+            if (sender == SenderRole.SECTION_HEAD) {
+                throw new ForbiddenException("SECTION_HEAD cannot preview a whole branch");
+            }
+            if (sender == SenderRole.BRANCH_HEAD && !ctx.headOfBranches().contains(b)) {
+                throw new ForbiddenException("BRANCH_HEAD cannot preview outside own branch");
+            }
+            Set<Long> narrowedDepts = deptsByBranch.get(b);
+            if (narrowedDepts != null && !narrowedDepts.isEmpty()) {
+                for (Long d : narrowedDepts) {
+                    absorb.accept(membershipRepo
+                            .findByBranchIdAndDepartmentIdAndMembershipTypeAndActiveTrue(
+                                    b, d, MembershipType.STATE_LAWYER));
+                }
+            } else {
+                absorb.accept(membershipRepo
+                        .findByBranchIdAndMembershipTypeAndActiveTrue(b, MembershipType.STATE_LAWYER));
+            }
+        }
+
+        // Depts whose parent branch was NOT picked → include them on their own.
+        for (var entry : deptsByBranch.entrySet()) {
+            Long branchOfDept = entry.getKey();
+            if (branches.contains(branchOfDept)) continue;
+            for (Long d : entry.getValue()) {
+                absorb.accept(membershipRepo
+                        .findByBranchIdAndDepartmentIdAndMembershipTypeAndActiveTrue(
+                                branchOfDept, d, MembershipType.STATE_LAWYER));
+            }
+        }
+
+        if (!users.isEmpty()) {
+            Set<Long> reachable = reachableLawyerIds(sender, ctx);
+            List<Long> outside = new ArrayList<>();
+            for (Long uid : users) if (!reachable.contains(uid)) outside.add(uid);
+            if (!outside.isEmpty()) {
+                throw new ForbiddenException(
+                        "Some recipients are outside your broadcast scope: " + outside);
+            }
+            // Look up the membership row for the explicit user ids so the preview
+            // can show a (branch, dept) label.
+            for (Long uid : users) {
+                if (chosen.containsKey(uid)) continue;
+                membershipRepo.findByUserIdAndActiveTrue(uid).stream()
+                        .filter(m -> m.getMembershipType() == MembershipType.STATE_LAWYER)
+                        .findFirst()
+                        .ifPresent(m -> chosen.put(uid, m));
+            }
+        }
+
+        if (chosen.isEmpty()) return List.of();
+
+        Set<Long> activeIds = userRepo.findAllById(chosen.keySet()).stream()
+                .filter(User::isActive)
+                .map(User::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        Map<Long, User> usersById = userRepo.findAllById(activeIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+
+        return chosen.entrySet().stream()
+                .filter(e -> activeIds.contains(e.getKey()))
+                .map(e -> {
+                    User u = usersById.get(e.getKey());
+                    UserDepartmentMembership m = e.getValue();
                     return new BroadcastRecipientDto(
                             u.getId(), u.getFullName(), u.getUsername(),
                             m.getBranchId(), m.getDepartmentId());
@@ -200,6 +339,10 @@ public class BroadcastService {
 
     private Set<Long> resolveRecipients(SenderRole sender, AuthorizationContext ctx,
                                         BroadcastRequest req) {
+        // Customer feedback round-2 (PR-15a): branchIds / departmentIds let
+        // an admin (or branch head) target several branches / sections in
+        // one broadcast. The single-valued branchId/departmentId still work
+        // and are merged into the union via effective*Ids().
         switch (req.scope()) {
             case ALL -> {
                 if (sender != SenderRole.ADMIN) {
@@ -209,36 +352,63 @@ public class BroadcastService {
                         membershipRepo.findByMembershipTypeAndActiveTrue(MembershipType.STATE_LAWYER));
             }
             case BRANCH -> {
-                if (req.branchId() == null) {
-                    throw new BadRequestException("INVALID_BROADCAST", "branchId is required for BRANCH scope");
+                List<Long> branches = req.effectiveBranchIds();
+                if (branches.isEmpty()) {
+                    throw new BadRequestException("INVALID_BROADCAST",
+                            "branchId(s) required for BRANCH scope");
                 }
                 if (sender == SenderRole.SECTION_HEAD) {
                     throw new ForbiddenException("SECTION_HEAD cannot broadcast to a whole branch");
                 }
-                if (sender == SenderRole.BRANCH_HEAD
-                        && !ctx.headOfBranches().contains(req.branchId())) {
-                    throw new ForbiddenException("BRANCH_HEAD cannot broadcast outside own branch");
+                if (sender == SenderRole.BRANCH_HEAD) {
+                    for (Long b : branches) {
+                        if (!ctx.headOfBranches().contains(b)) {
+                            throw new ForbiddenException(
+                                    "BRANCH_HEAD cannot broadcast outside own branch");
+                        }
+                    }
                 }
-                return distinctActiveLawyerIds(
-                        membershipRepo.findByBranchIdAndMembershipTypeAndActiveTrue(
-                                req.branchId(), MembershipType.STATE_LAWYER));
+                List<UserDepartmentMembership> rows = new ArrayList<>();
+                for (Long b : branches) {
+                    rows.addAll(membershipRepo
+                            .findByBranchIdAndMembershipTypeAndActiveTrue(b, MembershipType.STATE_LAWYER));
+                }
+                return distinctActiveLawyerIds(rows);
             }
             case DEPARTMENT -> {
-                if (req.branchId() == null || req.departmentId() == null) {
+                List<Long> branches = req.effectiveBranchIds();
+                List<Long> departments = req.effectiveDepartmentIds();
+                if (branches.isEmpty() || departments.isEmpty()) {
                     throw new BadRequestException("INVALID_BROADCAST",
-                            "branchId and departmentId are required for DEPARTMENT scope");
+                            "branchId(s) and departmentId(s) required for DEPARTMENT scope");
                 }
-                if (sender == SenderRole.BRANCH_HEAD
-                        && !ctx.headOfBranches().contains(req.branchId())) {
-                    throw new ForbiddenException("BRANCH_HEAD cannot broadcast outside own branch");
+                if (sender == SenderRole.BRANCH_HEAD) {
+                    for (Long b : branches) {
+                        if (!ctx.headOfBranches().contains(b)) {
+                            throw new ForbiddenException(
+                                    "BRANCH_HEAD cannot broadcast outside own branch");
+                        }
+                    }
                 }
-                if (sender == SenderRole.SECTION_HEAD
-                        && !ctx.isSectionHeadOf(req.branchId(), req.departmentId())) {
-                    throw new ForbiddenException("SECTION_HEAD cannot broadcast outside own section");
+                if (sender == SenderRole.SECTION_HEAD) {
+                    for (Long b : branches) {
+                        for (Long d : departments) {
+                            if (!ctx.isSectionHeadOf(b, d)) {
+                                throw new ForbiddenException(
+                                        "SECTION_HEAD cannot broadcast outside own section");
+                            }
+                        }
+                    }
                 }
-                return distinctActiveLawyerIds(
-                        membershipRepo.findByBranchIdAndDepartmentIdAndMembershipTypeAndActiveTrue(
-                                req.branchId(), req.departmentId(), MembershipType.STATE_LAWYER));
+                List<UserDepartmentMembership> rows = new ArrayList<>();
+                for (Long b : branches) {
+                    for (Long d : departments) {
+                        rows.addAll(membershipRepo
+                                .findByBranchIdAndDepartmentIdAndMembershipTypeAndActiveTrue(
+                                        b, d, MembershipType.STATE_LAWYER));
+                    }
+                }
+                return distinctActiveLawyerIds(rows);
             }
             case USERS -> {
                 if (req.userIds() == null || req.userIds().isEmpty()) {
@@ -255,8 +425,121 @@ public class BroadcastService {
                 }
                 return requested;
             }
+            case CUSTOM -> {
+                return resolveCustom(sender, ctx, req);
+            }
         }
         return Set.of();
+    }
+
+    /**
+     * Customer feedback round-2 (PR-15a iteration 3): CUSTOM scope.
+     *
+     * Per the customer's clarification on the broadcast composer:
+     * a section ticked under a branch should NARROW that branch to just that
+     * section, not pile up in addition. Mental model: the user navigates
+     * "branch → section". Sections override their parent branch's "whole
+     * branch" inclusion. Sections of OTHER branches (or sections without their
+     * branch picked) still get included on their own.
+     *
+     * Concretely we compute:
+     *   coveredPairs = ∅
+     *   for branch B in branchIds:
+     *       if any dept in departmentIds belongs to B:
+     *           coveredPairs += {(B, d) for those depts}     // narrowed
+     *       else:
+     *           coveredPairs += {(B, all of B's depts)}      // whole branch
+     *   for dept D in departmentIds whose branch is NOT in branchIds:
+     *       coveredPairs += {(branchOf(D), D)}
+     *
+     *   recipients = lawyers whose (branch_id, dept_id) ∈ coveredPairs
+     *              ∪ (explicitly named userIds that are reachable lawyers)
+     */
+    private Set<Long> resolveCustom(SenderRole sender, AuthorizationContext ctx,
+                                    BroadcastRequest req) {
+        List<Long> branches    = req.effectiveBranchIds();
+        List<Long> departments = req.effectiveDepartmentIds();
+        List<Long> users       = req.userIds() == null ? List.of() : req.userIds();
+
+        if (branches.isEmpty() && departments.isEmpty() && users.isEmpty()) {
+            throw new BadRequestException("INVALID_BROADCAST",
+                    "اختيار مخصّص يتطلّب على الأقل فرعًا أو قسمًا أو محاميًا واحدًا");
+        }
+
+        Set<Long> recipients = new LinkedHashSet<>();
+
+        // ── Step 1: build (branch → picked depts) map, validating auth ──
+        java.util.Map<Long, java.util.Set<Long>> deptsByBranch = new java.util.LinkedHashMap<>();
+        for (Long d : departments) {
+            Department dept = departmentRepo.findById(d).orElseThrow(() ->
+                    new NotFoundException("Department not found: " + d));
+            Long branchOfDept = dept.getBranchId();
+            if (sender == SenderRole.BRANCH_HEAD
+                    && !ctx.headOfBranches().contains(branchOfDept)) {
+                throw new ForbiddenException(
+                        "BRANCH_HEAD cannot broadcast outside own branch");
+            }
+            if (sender == SenderRole.SECTION_HEAD
+                    && !ctx.isSectionHeadOf(branchOfDept, d)) {
+                throw new ForbiddenException(
+                        "SECTION_HEAD cannot broadcast outside own section");
+            }
+            deptsByBranch.computeIfAbsent(branchOfDept, k -> new java.util.LinkedHashSet<>()).add(d);
+        }
+
+        // ── Step 2: per-branch resolution (narrowed if depts picked, whole otherwise) ──
+        for (Long b : branches) {
+            if (sender == SenderRole.SECTION_HEAD) {
+                throw new ForbiddenException(
+                        "SECTION_HEAD cannot broadcast to a whole branch");
+            }
+            if (sender == SenderRole.BRANCH_HEAD && !ctx.headOfBranches().contains(b)) {
+                throw new ForbiddenException(
+                        "BRANCH_HEAD cannot broadcast outside own branch");
+            }
+
+            Set<Long> narrowedDepts = deptsByBranch.get(b);
+            if (narrowedDepts != null && !narrowedDepts.isEmpty()) {
+                // User picked specific sections under this branch → restrict.
+                for (Long d : narrowedDepts) {
+                    recipients.addAll(distinctActiveLawyerIds(
+                            membershipRepo
+                                .findByBranchIdAndDepartmentIdAndMembershipTypeAndActiveTrue(
+                                        b, d, MembershipType.STATE_LAWYER)));
+                }
+            } else {
+                // No section narrowing for this branch → include the whole branch.
+                recipients.addAll(distinctActiveLawyerIds(
+                        membershipRepo.findByBranchIdAndMembershipTypeAndActiveTrue(
+                                b, MembershipType.STATE_LAWYER)));
+            }
+        }
+
+        // ── Step 3: depts whose parent branch was NOT picked → include them on their own ──
+        for (var entry : deptsByBranch.entrySet()) {
+            Long branchOfDept = entry.getKey();
+            if (branches.contains(branchOfDept)) continue;   // already handled in Step 2
+            for (Long d : entry.getValue()) {
+                recipients.addAll(distinctActiveLawyerIds(
+                        membershipRepo
+                            .findByBranchIdAndDepartmentIdAndMembershipTypeAndActiveTrue(
+                                    branchOfDept, d, MembershipType.STATE_LAWYER)));
+            }
+        }
+
+        // ── Step 4: explicitly chosen lawyers ──
+        if (!users.isEmpty()) {
+            Set<Long> reachable = reachableLawyerIds(sender, ctx);
+            List<Long> outside = new ArrayList<>();
+            for (Long uid : users) if (!reachable.contains(uid)) outside.add(uid);
+            if (!outside.isEmpty()) {
+                throw new ForbiddenException(
+                        "Some recipients are outside your broadcast scope: " + outside);
+            }
+            recipients.addAll(users);
+        }
+
+        return recipients;
     }
 
     private Set<Long> reachableLawyerIds(SenderRole sender, AuthorizationContext ctx) {

@@ -131,6 +131,7 @@ class CasesApiIT extends AbstractIntegrationTest {
                 + "\"departmentId\":" + dept + ","
                 + "\"courtId\":" + court + ","
                 + "\"chamberName\":\"الغرفة الأولى\","
+                + "\"courtType\":\"GENERAL\","
                 + "\"stageType\":\"FIRST_INSTANCE\","
                 + "\"stageBasisNumber\":\"" + basis + "\","
                 + "\"stageYear\":2026,"

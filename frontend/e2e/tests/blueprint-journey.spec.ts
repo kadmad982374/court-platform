@@ -397,7 +397,7 @@ async function apiGetCase(token: string, caseId: number): Promise<{ currentStage
     await beat(page, 1500);
 
     // المرحلة الحالية FINALIZED (من المرحلة 7) فيظهر زرّ الترقية.
-    const promoteBtn = page.getByRole('button', { name: /ترقية إلى الاستئناف/ });
+    const promoteBtn = page.getByRole('button', { name: /(?:نقل الملف|ترقية) إلى الاستئناف/ });
     await expect(promoteBtn).toBeVisible({ timeout: 10_000 });
     await beat(page, 800);
 

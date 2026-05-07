@@ -82,21 +82,34 @@ export async function fillCreateCaseForm(page: Page, opts: {
   opponent?: string;
   firstHearingDate?: string;
 } = {}): Promise<{ suffix: string }> {
-  const branchSel = page.locator('select').nth(0);
-  await expect(branchSel.locator('option').nth(1)).toBeAttached({ timeout: 10_000 });
-  await branchSel.selectOption(
-    (await branchSel.locator('option').nth(1).getAttribute('value'))!,
-  );
-  const deptSel = page.locator('select').nth(1);
-  await expect(deptSel.locator('option').nth(1)).toBeAttached({ timeout: 10_000 });
-  await deptSel.selectOption(
-    (await deptSel.locator('option').nth(1).getAttribute('value'))!,
-  );
-  const courtSel = page.locator('select').nth(3);
-  await expect(courtSel.locator('option').nth(1)).toBeAttached({ timeout: 10_000 });
-  await courtSel.selectOption(
-    (await courtSel.locator('option').nth(1).getAttribute('value'))!,
-  );
+  // PR-15a iter 4: section-head with a single membership has branch/dept/
+  // stage-type auto-locked → those Selects don't render. Only court remains.
+  const allSelects = page.locator('select');
+  const totalSelects = await allSelects.count();
+  if (totalSelects >= 4) {
+    const branchSel = allSelects.nth(0);
+    await expect(branchSel.locator('option').nth(1)).toBeAttached({ timeout: 10_000 });
+    await branchSel.selectOption(
+      (await branchSel.locator('option').nth(1).getAttribute('value'))!,
+    );
+    const deptSel = allSelects.nth(1);
+    await expect(deptSel.locator('option').nth(1)).toBeAttached({ timeout: 10_000 });
+    await deptSel.selectOption(
+      (await deptSel.locator('option').nth(1).getAttribute('value'))!,
+    );
+    const courtSel = allSelects.nth(3);
+    await expect(courtSel.locator('option').nth(1)).toBeAttached({ timeout: 10_000 });
+    await courtSel.selectOption(
+      (await courtSel.locator('option').nth(1).getAttribute('value'))!,
+    );
+  } else {
+    const courtSel = page.locator('label:has-text("المحكمة")')
+      .locator('xpath=following::select[1]');
+    await expect(courtSel.locator('option').nth(1)).toBeAttached({ timeout: 10_000 });
+    await courtSel.selectOption(
+      (await courtSel.locator('option').nth(1).getAttribute('value'))!,
+    );
+  }
 
   const suffix = Date.now().toString().slice(-6);
   await fieldByLabel(page, 'اسم الجهة العامة').fill(
@@ -105,11 +118,9 @@ export async function fillCreateCaseForm(page: Page, opts: {
   await fieldByLabel(page, 'اسم الخصم').fill(
     opts.opponent ?? 'شركة العرض التوضيحي',
   );
-  await fieldByLabel(page, 'رقم الأساس الأصلي').fill(`DEMO-O-${suffix}`);
-  await fieldByLabel(page, 'سنة الأساس الأصلي').fill('2026');
-  await fieldByLabel(page, 'تاريخ القيد الأصلي').fill('2026-01-15');
-  await fieldByLabel(page, 'رقم أساس المرحلة').fill(`DEMO-S-${suffix}`);
-  await fieldByLabel(page, 'سنة المرحلة').fill('2026');
+  await fieldByLabel(page, 'رقم الأساس').fill(`DEMO-O-${suffix}`);
+  await fieldByLabel(page, 'تاريخ تسجيل الملف').fill('2026-01-15');
+  await fieldByLabel(page, 'رقم أساس الدعوى').fill(`DEMO-S-${suffix}`);
   await fieldByLabel(page, 'تاريخ الجلسة الأولى').fill(
     opts.firstHearingDate ?? '2026-06-01',
   );

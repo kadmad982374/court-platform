@@ -123,6 +123,7 @@ class AttachmentsRemindersNotificationsIT extends AbstractIntegrationTest {
                 + "\"basisYear\":2026,"
                 + "\"originalRegistrationDate\":\"2026-02-01\","
                 + "\"branchId\":" + branchId + ",\"departmentId\":" + deptId + ",\"courtId\":" + courtId + ","
+                + "\"courtType\":\"GENERAL\","
                 + "\"stageType\":\"FIRST_INSTANCE\","
                 + "\"stageBasisNumber\":\"S-" + basis + "\","
                 + "\"stageYear\":2026,"

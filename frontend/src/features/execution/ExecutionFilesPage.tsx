@@ -17,18 +17,17 @@ import { useQuery } from '@tanstack/react-query';
 import { listExecutionFiles, type ListExecutionFilesQuery } from './api';
 import { useAuth } from '@/features/auth/AuthContext';
 import { hasRole } from '@/features/auth/permissions';
-import { listBranches, listCourts, listDepartments } from '@/shared/api/lookups';
+import { listBranches, listCourts } from '@/shared/api/lookups';
 import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { Spinner } from '@/shared/ui/Spinner';
 import { Button } from '@/shared/ui/Button';
-import { Input } from '@/shared/ui/Input';
+import { ScrollYearPicker } from '@/shared/ui/ScrollYearPicker';
 import { Select } from '@/shared/ui/FormFields';
 import { Table, TBody, TD, TH, THead, TR } from '@/shared/ui/Table';
 import {
   EXECUTION_FILE_STATUS_LABEL_AR,
   type CurrentUser,
-  type Department,
   type ExecutionFileStatus,
 } from '@/shared/types/domain';
 import { extractApiErrorMessage } from '@/shared/lib/apiError';
@@ -180,6 +179,10 @@ function FilterForm({
   onApply: () => void;
   onClear: () => void;
 }) {
+  // Customer feedback round-2: visual-only "case type" filter (مصرفي/عادي).
+  // Not wired to backend yet — placeholder for the section/stage refactor.
+  const [caseTypeUi, setCaseTypeUi] = useState<string>('');
+
   const branchesQ = useQuery({
     queryKey: ['lookups', 'branches'],
     queryFn: () => listBranches(),
@@ -193,16 +196,12 @@ function FilterForm({
     mode.kind === 'admin'       ? pending.branchId :
     undefined;
 
-  const departmentsQ = useQuery({
-    queryKey: ['lookups', 'departments', activeBranchId ?? null],
-    queryFn: () => listDepartments(activeBranchId!),
-    enabled: activeBranchId != null && (mode.kind === 'admin' || mode.kind === 'branch_head'),
-    staleTime: 60_000,
-  });
-
+  // Customer feedback round-2: in the Execution tab the area dropdown must
+  // show ONLY execution circles (دوائر التنفيذ) — not the four stage-courts
+  // of the branch. Filter listCourts by departmentType=EXECUTION.
   const courtsQ = useQuery({
-    queryKey: ['lookups', 'courts', activeBranchId ?? null],
-    queryFn: () => listCourts({ branchId: activeBranchId }),
+    queryKey: ['lookups', 'courts', activeBranchId ?? null, 'EXECUTION'],
+    queryFn: () => listCourts({ branchId: activeBranchId, departmentType: 'EXECUTION' }),
     enabled: activeBranchId != null,
     staleTime: 60_000,
   });
@@ -233,24 +232,27 @@ function FilterForm({
 
       {(mode.kind === 'admin' || mode.kind === 'branch_head') && (
         <FilterField label="القسم">
+          {/*
+            Customer feedback round-2: in the Execution panel the Section
+            dropdown must be the case-type axis (banking / standard / …),
+            NOT the four stage-courts of the branch. Hardcoded placeholder
+            options — real case-type data lands with the section/stage
+            refactor (PR-15b). The picker is visual only and is NOT sent
+            to the backend yet.
+          */}
           <Select
-            value={pending.departmentId ?? ''}
-            disabled={mode.kind === 'admin' && !pending.branchId}
-            onChange={(e) => setPending((p) => ({
-              ...p,
-              departmentId: e.target.value ? Number(e.target.value) : undefined,
-            }))}
+            value={caseTypeUi}
+            onChange={(e) => setCaseTypeUi(e.target.value)}
           >
             <option value="">الكل</option>
-            {(departmentsQ.data ?? []).map((d: Department) => (
-              <option key={d.id} value={d.id}>{d.nameAr}</option>
-            ))}
+            <option value="BANKING">مصرفي</option>
+            <option value="STANDARD">عادي</option>
           </Select>
         </FilterField>
       )}
 
       {mode.kind !== 'lawyer' && mode.kind !== 'none' && (
-        <FilterField label="المنطقة (المحكمة)">
+        <FilterField label="دائرة التنفيذ">
           <Select
             value={pending.courtId ?? ''}
             disabled={activeBranchId == null}
@@ -260,7 +262,7 @@ function FilterForm({
             }))}
           >
             <option value="">الكل</option>
-            {(courtsQ.data ?? []).map((c) => (
+            {(courtsQ.data ?? []).filter((c) => c.active).map((c) => (
               <option key={c.id} value={c.id}>{c.nameAr}</option>
             ))}
           </Select>
@@ -268,12 +270,9 @@ function FilterForm({
       )}
 
       <FilterField label="السنة">
-        <Input
-          type="number"
-          value={pending.year ?? ''}
-          onChange={(e) => setPending((p) => ({
-            ...p, year: e.target.value ? Number(e.target.value) : undefined,
-          }))}
+        <ScrollYearPicker
+          value={pending.year}
+          onChange={(year) => setPending((p) => ({ ...p, year }))}
         />
       </FilterField>
 

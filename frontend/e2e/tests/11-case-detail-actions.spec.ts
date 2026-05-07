@@ -131,7 +131,7 @@ test.describe('11-B) Promote to appeal', () => {
     await page.goto(`/cases/${caseId}`);
     await expect(page.getByText('المعلومات الأساسية')).toBeVisible({ timeout: 15_000 });
 
-    const promoteBtn = page.getByRole('button', { name: /ترقية إلى الاستئناف/ });
+    const promoteBtn = page.getByRole('button', { name: /(?:نقل الملف|ترقية) إلى الاستئناف/ });
     await expect(promoteBtn).toBeVisible({ timeout: 5_000 });
     await promoteBtn.click();
 
@@ -164,7 +164,7 @@ test.describe('11-B) Promote to appeal', () => {
     await page.goto('/cases/1');
     await expect(page.getByText('المعلومات الأساسية')).toBeVisible({ timeout: 15_000 });
 
-    const promoteBtn = page.getByRole('button', { name: /ترقية إلى الاستئناف/ });
+    const promoteBtn = page.getByRole('button', { name: /(?:نقل الملف|ترقية) إلى الاستئناف/ });
     await expect(promoteBtn).not.toBeVisible({ timeout: 3_000 });
   });
 });
@@ -187,13 +187,13 @@ test.describe('11-C) Promote to execution', () => {
     await page.goto(`/cases/${caseId}`);
     await expect(page.getByText('المعلومات الأساسية')).toBeVisible({ timeout: 15_000 });
 
-    const promoteBtn = page.getByRole('button', { name: /ترقية إلى التنفيذ/ });
+    const promoteBtn = page.getByRole('button', { name: /(?:نقل الملف|ترقية) إلى التنفيذ/ });
     await expect(promoteBtn).toBeVisible({ timeout: 5_000 });
     await promoteBtn.click();
 
     // Modal opens
     const dialog = page.getByRole('dialog').or(
-      page.getByText(/ترقية الدعوى إلى ملف تنفيذي/),
+      page.getByText(/(?:نقل|ترقية) الدعوى إلى ملف تنفيذي/),
     ).first();
     await expect(dialog).toBeVisible({ timeout: 10_000 });
 
@@ -240,13 +240,13 @@ test.describe('11-C) Promote to execution', () => {
     await page.goto('/cases/1');
     await expect(page.getByText('المعلومات الأساسية')).toBeVisible({ timeout: 15_000 });
 
-    const promoteBtn = page.getByRole('button', { name: /ترقية إلى التنفيذ/ });
+    const promoteBtn = page.getByRole('button', { name: /(?:نقل الملف|ترقية) إلى التنفيذ/ });
     await expect(promoteBtn).toBeVisible({ timeout: 5_000 });
     await promoteBtn.click();
 
     // Modal opens
     await expect(
-      page.getByRole('dialog').or(page.getByText(/ترقية الدعوى إلى ملف تنفيذي/)).first(),
+      page.getByRole('dialog').or(page.getByText(/(?:نقل|ترقية) الدعوى إلى ملف تنفيذي/)).first(),
     ).toBeVisible({ timeout: 10_000 });
 
     // Fill form and submit — backend will reject
@@ -274,7 +274,7 @@ test.describe('11-C) Promote to execution', () => {
     await page.goto('/cases/1');
     await expect(page.getByText('المعلومات الأساسية')).toBeVisible({ timeout: 15_000 });
 
-    const promoteBtn = page.getByRole('button', { name: /ترقية إلى التنفيذ/ });
+    const promoteBtn = page.getByRole('button', { name: /(?:نقل الملف|ترقية) إلى التنفيذ/ });
     await expect(promoteBtn).not.toBeVisible({ timeout: 3_000 });
   });
 });

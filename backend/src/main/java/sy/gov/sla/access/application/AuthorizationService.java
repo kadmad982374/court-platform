@@ -244,6 +244,22 @@ public class AuthorizationService {
     }
 
     /**
+     * Customer feedback round-2 (PR-15a) — section-head-only gate.
+     *
+     * Used for actions the customer explicitly reserved to رئيس القسم alone:
+     * editing basic case data and correcting finalized cases. The legacy
+     * {@link DelegatedPermissionCode#EDIT_CASE_BASIC_DATA} /
+     * {@link DelegatedPermissionCode#CORRECT_FINALIZED_CASE} delegations no
+     * longer grant access on this path.
+     */
+    public void requireSectionHeadOf(AuthorizationContext ctx, Long branchId, Long departmentId) {
+        if (ctx.isSectionHeadOf(branchId, departmentId)) return;
+        UserActionLog.denied("tried section-head-only action in branch={} dept={} — reason=not_section_head",
+                branchId, departmentId);
+        throw new ForbiddenException("Reserved to the section head of this department");
+    }
+
+    /**
      * منفذ ملكية الدعوى: يُحقَن من وحدة litigationregistration (انظر CaseOwnershipPort/Adapter).
      * setter بدلًا من constructor injection لتجنّب الاعتمادات الدائرية بين الوحدات.
      */

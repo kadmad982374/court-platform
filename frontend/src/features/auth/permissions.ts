@@ -91,6 +91,19 @@ export function canPromoteToAppeal(user: CurrentUser | null): boolean {
   return false;
 }
 
+/**
+ * Customer feedback round-2: "نقل الملف إلى الصلح".
+ * Same gate as canPromoteToAppeal — we reuse the PROMOTE_TO_APPEAL delegation
+ * for clerks rather than introducing a new code, since the trust level is
+ * identical and the customer treats both as administrative file transfers.
+ */
+export function canPromoteToConciliation(user: CurrentUser | null): boolean {
+  if (!user) return false;
+  if (hasRole(user, 'SECTION_HEAD')) return true;
+  if (hasRole(user, 'ADMIN_CLERK') && hasDelegatedPermission(user, 'PROMOTE_TO_APPEAL')) return true;
+  return false;
+}
+
 /** D-030 — SECTION_HEAD, OR ADMIN_CLERK with PROMOTE_TO_EXECUTION delegation. */
 export function canPromoteToExecution(user: CurrentUser | null): boolean {
   if (!user) return false;
@@ -156,26 +169,28 @@ export function canCreateCase(user: CurrentUser | null): boolean {
 }
 
 /**
- * Phase 11 — Edit-case-basic-data (backend `requireCaseManagement(..., EDIT_CASE_BASIC_DATA`).
+ * Edit-case-basic-data — SECTION_HEAD ONLY.
  *
- * Mirror of canCreateCase but tied to a specific case's (branch, dept).
- * Backend authority is final.
+ * Customer feedback round-2 (PR-15a): the ADMIN_CLERK path is removed.
+ * Clerks can no longer edit basic case data, even with the legacy
+ * EDIT_CASE_BASIC_DATA delegation. Only the section head of the case's
+ * (createdBranchId, createdDepartmentId) is allowed.
+ *
+ * Backend authority is final — `LitigationCaseService.updateBasicData`
+ * is tightened to match.
  */
 export function canEditCaseBasicData(
   user: CurrentUser | null,
   caseRef: { createdBranchId: number; createdDepartmentId: number } | null,
 ): boolean {
   if (!user || !caseRef) return false;
-  const inDept = (mt: 'SECTION_HEAD' | 'ADMIN_CLERK') =>
-    user.departmentMemberships.some(
-      (m) =>
-        m.active &&
-        m.branchId === caseRef.createdBranchId &&
-        m.departmentId === caseRef.createdDepartmentId &&
-        m.membershipType === mt,
-    );
-  if (inDept('SECTION_HEAD')) return true;
-  return inDept('ADMIN_CLERK') && hasDelegatedPermission(user, 'EDIT_CASE_BASIC_DATA');
+  return user.departmentMemberships.some(
+    (m) =>
+      m.active &&
+      m.branchId === caseRef.createdBranchId &&
+      m.departmentId === caseRef.createdDepartmentId &&
+      m.membershipType === 'SECTION_HEAD',
+  );
 }
 
 /**
@@ -255,16 +270,20 @@ export function canAssignLawyerForCase(
 }
 
 /**
- * PR-11 (customer feedback C-6 / blueprint C-6) — correct a finalized case.
+ * Correct-finalized-case — SECTION_HEAD ONLY.
  *
- * Q-D rule from the customer: correction rights are anchored to the CURRENT
+ * Q-D rule (customer): correction rights are anchored to the CURRENT
  * stage's (branch, dept). After promotion the previous stage becomes
  * read-only and rights move to the destination dept's section head.
  *
+ * Customer feedback round-2 (PR-15a): clerks are blocked from editing
+ * basic data anywhere — including finalized-case correction in the
+ * resolved register. Only the SECTION_HEAD of the stage's (branch, dept)
+ * may correct finalized cases.
+ *
  * Visual gate (backend re-validates):
  *   - Stage MUST be FINALIZED and NOT read-only.
- *   - Actor must be SECTION_HEAD of the stage's (branch, dept), OR
- *     ADMIN_CLERK with CORRECT_FINALIZED_CASE delegation.
+ *   - Actor must be SECTION_HEAD of the stage's (branch, dept).
  */
 export function canCorrectFinalizedCase(
   user: CurrentUser | null,
@@ -273,16 +292,13 @@ export function canCorrectFinalizedCase(
   if (!user || !stage) return false;
   if (stage.readOnly) return false;
   if (stage.stageStatus !== 'FINALIZED') return false;
-  const inDept = (mt: 'SECTION_HEAD' | 'ADMIN_CLERK') =>
-    user.departmentMemberships.some(
-      (m) =>
-        m.active &&
-        m.branchId === stage.branchId &&
-        m.departmentId === stage.departmentId &&
-        m.membershipType === mt,
-    );
-  if (inDept('SECTION_HEAD')) return true;
-  return inDept('ADMIN_CLERK') && hasDelegatedPermission(user, 'CORRECT_FINALIZED_CASE');
+  return user.departmentMemberships.some(
+    (m) =>
+      m.active &&
+      m.branchId === stage.branchId &&
+      m.departmentId === stage.departmentId &&
+      m.membershipType === 'SECTION_HEAD',
+  );
 }
 
 /**

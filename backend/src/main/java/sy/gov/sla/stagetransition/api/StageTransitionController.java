@@ -17,5 +17,15 @@ public class StageTransitionController {
         Long actor = SecurityUtils.currentUserOrThrow().userId();
         return service.promoteToAppeal(caseId, actor);
     }
+
+    /**
+     * Customer feedback round-2: "نقل الملف إلى الصلح" — transfer a finalized
+     * stage to a new CONCILIATION stage in the same branch.
+     */
+    @PostMapping("/{caseId}/promote-to-conciliation")
+    public PromoteToConciliationResponseDto promoteToConciliation(@PathVariable("caseId") Long caseId) {
+        Long actor = SecurityUtils.currentUserOrThrow().userId();
+        return service.promoteToConciliation(caseId, actor);
+    }
 }
 

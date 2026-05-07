@@ -1,5 +1,6 @@
 package sy.gov.sla.litigationregistration.api;
 
+import sy.gov.sla.litigationregistration.domain.CourtType;
 import sy.gov.sla.litigationregistration.domain.LifecycleStatus;
 import sy.gov.sla.litigationregistration.domain.PublicEntityPosition;
 
@@ -19,6 +20,7 @@ public record LitigationCaseDto(
         Long createdDepartmentId,
         Long createdCourtId,
         String chamberName,
+        CourtType courtType,
         Long currentStageId,
         Long currentOwnerUserId,
         LifecycleStatus lifecycleStatus,

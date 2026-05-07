@@ -23,27 +23,22 @@ test.describe.serial('Role: SECTION_HEAD (section_fi_dam)', () => {
     await page.getByRole('button', { name: /إنشاء دعوى/ }).click();
     await expect(page).toHaveURL(/\/cases\/new$/);
 
-    // Org dropdowns
-    const branchSelect = page.locator('select').nth(0);
-    await expect(branchSelect.locator('option').nth(1)).toBeAttached({ timeout: 10_000 });
-    await branchSelect.selectOption(
-      (await branchSelect.locator('option').nth(1).getAttribute('value'))!,
+    // PR-15a iter 4: branch/dept/stage-type are locked for single-section
+    // section heads. Only court remains pickable. Use the label-walk locator
+    // so layout changes (locked vs pickers) don't break the test.
+    const courtSelect = page.locator('label:has-text("المحكمة")')
+      .locator('xpath=following::select[1]');
+    await expect(courtSelect.locator('option').nth(1)).toBeAttached({ timeout: 10_000 });
+    await courtSelect.selectOption(
+      (await courtSelect.locator('option').nth(1).getAttribute('value'))!,
     );
-    const dept = page.locator('select').nth(1);
-    await expect(dept.locator('option').nth(1)).toBeAttached({ timeout: 10_000 });
-    await dept.selectOption((await dept.locator('option').nth(1).getAttribute('value'))!);
-    const court = page.locator('select').nth(3);
-    await expect(court.locator('option').nth(1)).toBeAttached({ timeout: 10_000 });
-    await court.selectOption((await court.locator('option').nth(1).getAttribute('value'))!);
 
     const u = uniq();
     await fieldByLabel(page, 'اسم الجهة العامة').fill('وزارة E2E-ROLES');
     await fieldByLabel(page, 'اسم الخصم').fill('شركة E2E-ROLES');
-    await fieldByLabel(page, 'رقم الأساس الأصلي').fill(`R-O-${u}`);
-    await fieldByLabel(page, 'سنة الأساس الأصلي').fill('2026');
-    await fieldByLabel(page, 'تاريخ القيد الأصلي').fill('2026-01-15');
-    await fieldByLabel(page, 'رقم أساس المرحلة').fill(`R-S-${u}`);
-    await fieldByLabel(page, 'سنة المرحلة').fill('2026');
+    await fieldByLabel(page, 'رقم الأساس').fill(`R-O-${u}`);
+    await fieldByLabel(page, 'تاريخ تسجيل الملف').fill('2026-01-15');
+    await fieldByLabel(page, 'رقم أساس الدعوى').fill(`R-S-${u}`);
     await fieldByLabel(page, 'تاريخ الجلسة الأولى').fill('2026-06-01');
     await fieldByLabel(page, 'سبب التأجيل الأول').fill('سبب اختبار roles');
 

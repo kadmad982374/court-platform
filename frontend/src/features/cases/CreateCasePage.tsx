@@ -38,14 +38,21 @@ import { Select, Textarea } from '@/shared/ui/FormFields';
 import { Spinner } from '@/shared/ui/Spinner';
 import { extractApiErrorMessage } from '@/shared/lib/apiError';
 import {
+  COURT_TYPE_LABEL_AR,
+  COURT_TYPE_OPTIONS,
   PUBLIC_ENTITY_POSITION_LABEL_AR,
   STAGE_TYPE_LABEL_AR,
+  type CourtType,
   type CreateCaseRequest,
   type DepartmentType,
   type PublicEntityPosition,
   type StageType,
 } from '@/shared/types/domain';
 
+// Customer feedback round-2 (PR-15a):
+//   - Year is auto-derived from `originalRegistrationDate` (no separate input).
+//     Eliminates the user-reported "بنية الطلب غير صحيحة" caused by NaN years.
+//   - Labels renamed: "اسم الدائرة" → "رقم الغرفة", "رقم أساس المرحلة" → "رقم أساس الدعوى".
 const schema = z.object({
   branchId:                z.coerce.number().int().positive('اختر الفرع'),
   departmentId:            z.coerce.number().int().positive('اختر القسم'),
@@ -55,11 +62,15 @@ const schema = z.object({
   publicEntityPosition:    z.enum(['PLAINTIFF', 'DEFENDANT']),
   opponentName:            z.string().trim().min(1, 'مطلوب').max(200),
   originalBasisNumber:     z.string().trim().min(1, 'مطلوب').max(64),
-  basisYear:               z.coerce.number().int().min(1900).max(2100),
-  originalRegistrationDate: z.string().min(1, 'مطلوب'),       // yyyy-MM-dd
+  originalRegistrationDate: z.string().min(1, 'مطلوب')        // yyyy-MM-dd
+                              .regex(/^\d{4}-\d{2}-\d{2}$/, 'تاريخ غير صالح'),
   stageType:               z.enum(['CONCILIATION', 'FIRST_INSTANCE', 'APPEAL']),
+  /** Customer feedback round-2: نوع المحكمة. */
+  courtType: z.enum([
+    'URGENT', 'MARITIME', 'BANKING', 'LABOR',
+    'GENERAL', 'INSURANCE', 'CUSTOMS', 'ADMINISTRATIVE',
+  ]),
   stageBasisNumber:        z.string().trim().min(1, 'مطلوب').max(64),
-  stageYear:               z.coerce.number().int().min(1900).max(2100),
   firstHearingDate:        z.string().min(1, 'مطلوب'),       // yyyy-MM-dd
   firstPostponementReason: z.string().trim().min(1, 'مطلوب').max(200),
 });
@@ -98,6 +109,22 @@ export function CreateCasePage() {
     [branchesQ.data, allowedBranchIds],
   );
 
+  // ── Customer feedback round-2: section-head lock ────────────────
+  // If the user is a SECTION_HEAD with exactly ONE active membership,
+  // the case create form auto-fills branch + department + stage-type
+  // and hides those pickers. Per the customer:
+  //   "Head of FI department creates files only as FI — no department or
+  //    stage-type choice is shown."
+  // ADMIN_CLERK with delegations (or any user with multiple section-head
+  // memberships) keeps the editable pickers limited to their reach.
+  const lockedSectionHeadMembership = useMemo(() => {
+    if (!user) return null;
+    const sh = user.departmentMemberships.filter(
+      (m) => m.active && m.membershipType === 'SECTION_HEAD' && m.departmentId != null,
+    );
+    return sh.length === 1 ? sh[0] : null;
+  }, [user]);
+
   const {
     register, handleSubmit, watch, setValue, reset,
     formState: { errors, isSubmitting },
@@ -106,6 +133,8 @@ export function CreateCasePage() {
     defaultValues: {
       publicEntityPosition: 'DEFENDANT',
       stageType: 'FIRST_INSTANCE',
+      // Customer's spec lists "عادي" as the standard option — use it as the default.
+      courtType: 'GENERAL',
     },
   });
 
@@ -117,6 +146,42 @@ export function CreateCasePage() {
     queryFn: () => listDepartments(Number(branchId)),
     enabled: allowed && !!branchId,
   });
+
+  // Resolve the locked dept's row so we can read its type → matching stage-type.
+  const lockedDept = useMemo(() => {
+    if (!lockedSectionHeadMembership) return null;
+    return (departmentsQ.data ?? []).find(
+      (d) => d.id === lockedSectionHeadMembership.departmentId,
+    ) ?? null;
+  }, [departmentsQ.data, lockedSectionHeadMembership]);
+
+  // CONCILIATION → CONCILIATION, FIRST_INSTANCE → FIRST_INSTANCE,
+  // APPEAL → APPEAL. EXECUTION dept heads can't create cases via this form
+  // (executions land via promote-to-execution); leave stage as the default.
+  const lockedStageType: StageType | null = useMemo(() => {
+    if (!lockedDept) return null;
+    if (lockedDept.type === 'CONCILIATION')   return 'CONCILIATION';
+    if (lockedDept.type === 'FIRST_INSTANCE') return 'FIRST_INSTANCE';
+    if (lockedDept.type === 'APPEAL')         return 'APPEAL';
+    return null; // EXECUTION
+  }, [lockedDept]);
+
+  // Auto-fill the locked branch + department + stage-type. Once these are set,
+  // the corresponding pickers are hidden in the JSX below.
+  useEffect(() => {
+    if (!lockedSectionHeadMembership) return;
+    setValue('branchId', lockedSectionHeadMembership.branchId);
+  }, [lockedSectionHeadMembership, setValue]);
+
+  useEffect(() => {
+    if (!lockedSectionHeadMembership) return;
+    setValue('departmentId', lockedSectionHeadMembership.departmentId as number);
+  }, [lockedSectionHeadMembership, setValue]);
+
+  useEffect(() => {
+    if (!lockedStageType) return;
+    setValue('stageType', lockedStageType);
+  }, [lockedStageType, setValue]);
 
   const allowedDeptIds = useMemo(() => {
     if (!user || !branchId) return new Set<number>();
@@ -181,22 +246,31 @@ export function CreateCasePage() {
     );
   }
 
+  // Year derives from registration date — single source of truth (PR-15a).
+  const yearFromDate = (iso: string): number => Number.parseInt(iso.slice(0, 4), 10);
+  const watchedRegDate = watch('originalRegistrationDate') ?? '';
+  const derivedYear = /^\d{4}-\d{2}-\d{2}$/.test(watchedRegDate)
+    ? yearFromDate(watchedRegDate)
+    : null;
+
   const onSubmit = (v: FormValues) => {
     setServerError(null);
+    const computedYear = yearFromDate(v.originalRegistrationDate);
     const body: CreateCaseRequest = {
       publicEntityName: v.publicEntityName,
       publicEntityPosition: v.publicEntityPosition,
       opponentName: v.opponentName,
       originalBasisNumber: v.originalBasisNumber,
-      basisYear: Number(v.basisYear),
+      basisYear: computedYear,
       originalRegistrationDate: v.originalRegistrationDate,
       branchId: Number(v.branchId),
       departmentId: Number(v.departmentId),
       courtId: Number(v.courtId),
       chamberName: v.chamberName ? v.chamberName : null,
+      courtType: v.courtType as CourtType,
       stageType: v.stageType,
       stageBasisNumber: v.stageBasisNumber,
-      stageYear: Number(v.stageYear),
+      stageYear: computedYear,
       firstHearingDate: v.firstHearingDate,
       firstPostponementReason: v.firstPostponementReason,
     };
@@ -220,36 +294,66 @@ export function CreateCasePage() {
         <Card>
           <CardHeader><CardTitle>الموقع التنظيمي</CardTitle></CardHeader>
           <CardBody className="space-y-3">
-            <Field label="الفرع" error={errors.branchId?.message}>
-              <Select {...register('branchId')} disabled={branchesQ.isLoading}>
-                <option value="">— اختر —</option>
-                {visibleBranches.map((b) => (
-                  <option key={b.id} value={b.id}>{b.nameAr}</option>
-                ))}
-              </Select>
-              {visibleBranches.length === 0 && branchesQ.isFetched && (
-                <p className="mt-1 text-xs text-amber-600">
-                  لا توجد فروع متاحة لك (تحتاج عضوية SECTION_HEAD أو ADMIN_CLERK).
+            {lockedSectionHeadMembership && lockedDept && lockedStageType ? (
+              // Customer feedback round-2: section-head with a single membership.
+              // Branch / department / stage-type are locked to that membership and
+              // shown as read-only info — no choice presented.
+              <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                <p className="mb-1 text-xs text-slate-500">
+                  نطاقك (مقيَّد بقسمك — لا يمكن تغييره):
                 </p>
-              )}
-            </Field>
+                <ul className="list-disc space-y-0.5 ps-5 text-slate-700">
+                  <li>
+                    <span className="text-slate-500">الفرع:</span>{' '}
+                    <span className="font-medium">
+                      {(branchesQ.data ?? []).find((b) => b.id === lockedSectionHeadMembership.branchId)?.nameAr
+                        ?? `#${lockedSectionHeadMembership.branchId}`}
+                    </span>
+                  </li>
+                  <li>
+                    <span className="text-slate-500">القسم:</span>{' '}
+                    <span className="font-medium">{lockedDept.nameAr}</span>
+                  </li>
+                  <li>
+                    <span className="text-slate-500">نوع المرحلة:</span>{' '}
+                    <span className="font-medium">{STAGE_TYPE_LABEL_AR[lockedStageType]}</span>
+                  </li>
+                </ul>
+              </div>
+            ) : (
+              <>
+                <Field label="الفرع" error={errors.branchId?.message}>
+                  <Select {...register('branchId')} disabled={branchesQ.isLoading}>
+                    <option value="">— اختر —</option>
+                    {visibleBranches.map((b) => (
+                      <option key={b.id} value={b.id}>{b.nameAr}</option>
+                    ))}
+                  </Select>
+                  {visibleBranches.length === 0 && branchesQ.isFetched && (
+                    <p className="mt-1 text-xs text-amber-600">
+                      لا توجد فروع متاحة لك (تحتاج عضوية SECTION_HEAD أو ADMIN_CLERK).
+                    </p>
+                  )}
+                </Field>
 
-            <Field label="القسم" error={errors.departmentId?.message}>
-              <Select {...register('departmentId')} disabled={!branchId || departmentsQ.isLoading}>
-                <option value="">— اختر —</option>
-                {visibleDepartments.map((d) => (
-                  <option key={d.id} value={d.id}>{d.nameAr}</option>
-                ))}
-              </Select>
-            </Field>
+                <Field label="القسم" error={errors.departmentId?.message}>
+                  <Select {...register('departmentId')} disabled={!branchId || departmentsQ.isLoading}>
+                    <option value="">— اختر —</option>
+                    {visibleDepartments.map((d) => (
+                      <option key={d.id} value={d.id}>{d.nameAr}</option>
+                    ))}
+                  </Select>
+                </Field>
 
-            <Field label="نوع المرحلة" error={errors.stageType?.message}>
-              <Select {...register('stageType')}>
-                {STAGE_OPTIONS.map((s) => (
-                  <option key={s} value={s}>{STAGE_TYPE_LABEL_AR[s]}</option>
-                ))}
-              </Select>
-            </Field>
+                <Field label="نوع المرحلة" error={errors.stageType?.message}>
+                  <Select {...register('stageType')}>
+                    {STAGE_OPTIONS.map((s) => (
+                      <option key={s} value={s}>{STAGE_TYPE_LABEL_AR[s]}</option>
+                    ))}
+                  </Select>
+                </Field>
+              </>
+            )}
 
             <Field label="المحكمة" error={errors.courtId?.message}>
               <Select {...register('courtId')} disabled={!branchId || courtsQ.isLoading}>
@@ -260,8 +364,17 @@ export function CreateCasePage() {
               </Select>
             </Field>
 
-            <Field label="اسم الدائرة (اختياري)" error={errors.chamberName?.message}>
+            <Field label="رقم الغرفة (اختياري)" error={errors.chamberName?.message}>
               <Input {...register('chamberName')} placeholder="إن وُجد" />
+            </Field>
+
+            {/* Customer feedback round-2: required نوع المحكمة. */}
+            <Field label="نوع المحكمة" error={errors.courtType?.message}>
+              <Select {...register('courtType')}>
+                {COURT_TYPE_OPTIONS.map((t) => (
+                  <option key={t} value={t}>{COURT_TYPE_LABEL_AR[t]}</option>
+                ))}
+              </Select>
             </Field>
           </CardBody>
         </Card>
@@ -288,27 +401,32 @@ export function CreateCasePage() {
         <Card>
           <CardHeader><CardTitle>الأساس الأصلي</CardTitle></CardHeader>
           <CardBody className="space-y-3">
-            <Field label="رقم الأساس الأصلي" error={errors.originalBasisNumber?.message}>
+            <Field label="رقم الأساس" error={errors.originalBasisNumber?.message}>
               <Input {...register('originalBasisNumber')} />
             </Field>
-            <Field label="سنة الأساس الأصلي" error={errors.basisYear?.message}>
-              <Input type="number" {...register('basisYear')} />
-            </Field>
-            <Field label="تاريخ القيد الأصلي" error={errors.originalRegistrationDate?.message}>
+            <Field label="تاريخ تسجيل الملف" error={errors.originalRegistrationDate?.message}>
               <Input type="date" {...register('originalRegistrationDate')} />
               <p className="mt-1 text-xs text-slate-500">D-006: ثابت لا يُعدَّل بعد الإنشاء.</p>
+            </Field>
+            <Field label="عام الأساس">
+              <Input
+                type="text"
+                value={derivedYear ?? ''}
+                readOnly
+                aria-readonly="true"
+                placeholder="—"
+                className="bg-slate-50 text-slate-600"
+              />
+              <p className="mt-1 text-xs text-slate-500">يُملأ تلقائيًا من تاريخ تسجيل الملف.</p>
             </Field>
           </CardBody>
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>أساس المرحلة + الجلسة الأولى</CardTitle></CardHeader>
+          <CardHeader><CardTitle>أساس الدعوى + الجلسة الأولى</CardTitle></CardHeader>
           <CardBody className="space-y-3">
-            <Field label="رقم أساس المرحلة" error={errors.stageBasisNumber?.message}>
+            <Field label="رقم أساس الدعوى" error={errors.stageBasisNumber?.message}>
               <Input {...register('stageBasisNumber')} />
-            </Field>
-            <Field label="سنة المرحلة" error={errors.stageYear?.message}>
-              <Input type="number" {...register('stageYear')} />
             </Field>
             <Field label="تاريخ الجلسة الأولى" error={errors.firstHearingDate?.message}>
               <Input type="date" {...register('firstHearingDate')} />

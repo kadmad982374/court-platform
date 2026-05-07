@@ -16,6 +16,7 @@ import sy.gov.sla.litigationregistration.domain.LifecycleStatus;
 import sy.gov.sla.litigationregistration.domain.StageStatus;
 import sy.gov.sla.litigationregistration.domain.StageType;
 import sy.gov.sla.stagetransition.api.PromoteToAppealResponseDto;
+import sy.gov.sla.stagetransition.api.PromoteToConciliationResponseDto;
 
 import java.time.Instant;
 
@@ -82,6 +83,53 @@ public class StageTransitionService {
         return new PromoteToAppealResponseDto(
                 caseId, newStage.parentStageId(), newStage.newStageId(),
                 LifecycleStatus.IN_APPEAL.name());
+    }
+
+    /**
+     * Customer feedback round-2: "نقل الملف إلى الصلح".
+     * Same gating semantics as promote-to-appeal:
+     *   - current stage must be FINALIZED, not already a CONCILIATION stage,
+     *     not already read-only/promoted, lifecycle NEW or ACTIVE.
+     *   - actor must be SECTION_HEAD of (branch, dept), or ADMIN_CLERK with
+     *     the existing PROMOTE_TO_APPEAL delegation (we reuse it rather than
+     *     introducing a third delegation code for one button).
+     */
+    public PromoteToConciliationResponseDto promoteToConciliation(Long caseId, Long actorUserId) {
+        var info = caseStagePort.findCaseWithCurrentStage(caseId)
+                .orElseThrow(() -> new NotFoundException("Case not found: " + caseId));
+
+        if (info.currentStageStatus() != StageStatus.FINALIZED) {
+            throw new BadRequestException("STAGE_NOT_FINALIZED",
+                    "Current stage must be FINALIZED before transferring to conciliation");
+        }
+        if (info.currentStageType() == StageType.CONCILIATION) {
+            throw new BadRequestException("ALREADY_CONCILIATION_STAGE",
+                    "Current stage is already a CONCILIATION stage");
+        }
+        if (info.currentStageReadOnly()) {
+            throw new ConflictException("STAGE_ALREADY_PROMOTED",
+                    "Current stage is read-only (already promoted)");
+        }
+        if (info.lifecycleStatus() != null
+                && info.lifecycleStatus() != LifecycleStatus.NEW
+                && info.lifecycleStatus() != LifecycleStatus.ACTIVE) {
+            throw new ConflictException("INVALID_LIFECYCLE_FOR_CONCILIATION",
+                    "Case lifecycle does not allow transfer to conciliation: " + info.lifecycleStatus());
+        }
+
+        AuthorizationContext actor = authorizationService.loadContext(actorUserId);
+        // Reuse PROMOTE_TO_APPEAL delegation for clerks — same trust level.
+        authorizationService.requireCaseManagement(actor, info.branchId(), info.departmentId(),
+                DelegatedPermissionCode.PROMOTE_TO_APPEAL);
+
+        var newStage = caseStagePort.promoteCurrentStageToConciliation(caseId, actorUserId);
+
+        UserActionLog.action("transferred case #{} to conciliation — new stage #{}",
+                caseId, newStage.newStageId());
+
+        return new PromoteToConciliationResponseDto(
+                caseId, newStage.parentStageId(), newStage.newStageId(),
+                LifecycleStatus.ACTIVE.name());
     }
 }
 

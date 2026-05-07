@@ -68,6 +68,7 @@ public class LitigationCaseService {
                 .createdDepartmentId(req.departmentId())
                 .createdCourtId(req.courtId())
                 .chamberName(req.chamberName())
+                .courtType(req.courtType())
                 .lifecycleStatus(LifecycleStatus.NEW)
                 .createdByUserId(actorUserId)
                 .createdAt(now)
@@ -287,8 +288,11 @@ public class LitigationCaseService {
                 .orElseThrow(() -> new NotFoundException("Case not found: " + caseId));
 
         AuthorizationContext actor = authorizationService.loadContext(actorUserId);
-        authorizationService.requireCaseManagement(actor, lc.getCreatedBranchId(),
-                lc.getCreatedDepartmentId(), DelegatedPermissionCode.EDIT_CASE_BASIC_DATA);
+        // Customer feedback round-2 (PR-15a): editing basic case data is now
+        // reserved to the section head of (createdBranchId, createdDepartmentId).
+        // The legacy EDIT_CASE_BASIC_DATA clerk delegation no longer applies.
+        authorizationService.requireSectionHeadOf(actor, lc.getCreatedBranchId(),
+                lc.getCreatedDepartmentId());
 
         // المرحلة الحالية فقط (إن لم تكن read-only).
         CaseStage stage = lc.getCurrentStageId() == null ? null
@@ -368,9 +372,12 @@ public class LitigationCaseService {
         }
 
         // Auth — uses the CURRENT stage's branch/dept (Q-D rule).
+        // Customer feedback round-2 (PR-15a): correction is reserved to the
+        // section head of the current stage; the CORRECT_FINALIZED_CASE clerk
+        // delegation no longer applies.
         AuthorizationContext actor = authorizationService.loadContext(actorUserId);
-        authorizationService.requireCaseManagement(actor, stage.getBranchId(),
-                stage.getDepartmentId(), DelegatedPermissionCode.CORRECT_FINALIZED_CASE);
+        authorizationService.requireSectionHeadOf(actor, stage.getBranchId(),
+                stage.getDepartmentId());
 
         // Apply patch fields (only those supplied).
         if (req.originalBasisNumber() != null) lc.setOriginalBasisNumber(req.originalBasisNumber());
@@ -450,6 +457,7 @@ public class LitigationCaseService {
                 lc.getOpponentName(), lc.getOriginalBasisNumber(), lc.getBasisYear(),
                 lc.getOriginalRegistrationDate(), lc.getCreatedBranchId(),
                 lc.getCreatedDepartmentId(), lc.getCreatedCourtId(), lc.getChamberName(),
+                lc.getCourtType(),
                 lc.getCurrentStageId(), lc.getCurrentOwnerUserId(), lc.getLifecycleStatus(),
                 lc.getCreatedByUserId(), lc.getCreatedAt(), lc.getUpdatedAt(), stageDtos);
     }

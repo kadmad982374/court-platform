@@ -7,6 +7,7 @@ import type {
   LitigationCase,
   PageResponse,
   PromoteToAppealResponse,
+  PromoteToConciliationResponse,
   PromoteToExecutionRequest,
   UpdateCaseBasicDataRequest,
 } from '@/shared/types/domain';
@@ -48,6 +49,17 @@ export async function listCaseStages(id: number): Promise<CaseStage[]> {
 
 export async function promoteToAppeal(caseId: number): Promise<PromoteToAppealResponse> {
   const r = await http.post<PromoteToAppealResponse>(`/cases/${caseId}/promote-to-appeal`);
+  return r.data;
+}
+
+/**
+ * Customer feedback round-2: "نقل الملف إلى الصلح" — transfer a finalized
+ * stage to a new CONCILIATION stage in the same branch.
+ */
+export async function promoteToConciliation(caseId: number): Promise<PromoteToConciliationResponse> {
+  const r = await http.post<PromoteToConciliationResponse>(
+    `/cases/${caseId}/promote-to-conciliation`,
+  );
   return r.data;
 }
 

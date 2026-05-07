@@ -184,11 +184,11 @@ export function EditCaseBasicDataModal({ open, onClose, litigationCase, currentS
           </Select>
           <p className="mt-1 text-xs text-slate-500">يجب أن تبقى المحكمة ضمن نفس الفرع/القسم.</p>
         </F>
-        <F label="اسم الدائرة" error={errors.chamberName?.message}>
+        <F label="رقم الغرفة" error={errors.chamberName?.message}>
           <Input {...register('chamberName')} />
         </F>
 
-        <F label="رقم أساس المرحلة" error={errors.stageBasisNumber?.message}>
+        <F label="رقم أساس الدعوى" error={errors.stageBasisNumber?.message}>
           <Input {...register('stageBasisNumber')} />
         </F>
         <F label="سنة المرحلة" error={errors.stageYear?.message}>

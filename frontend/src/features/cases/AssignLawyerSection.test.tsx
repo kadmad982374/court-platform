@@ -56,6 +56,7 @@ function makeCase(over: Partial<LitigationCase> = {}): LitigationCase {
     publicEntityName: 'X', publicEntityPosition: 'PLAINTIFF', opponentName: 'Y',
     originalBasisNumber: '1', basisYear: 2026, originalRegistrationDate: '2026-01-01',
     createdBranchId: 1, createdDepartmentId: 2, createdCourtId: 1, chamberName: null,
+    courtType: 'GENERAL',
     currentStageId: 10, currentOwnerUserId: null, lifecycleStatus: 'NEW',
     createdByUserId: 1, createdAt: '', updatedAt: '', stages: [],
     ...over,

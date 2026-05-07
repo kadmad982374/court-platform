@@ -24,27 +24,39 @@ test.describe('3) Create case (SECTION_HEAD path)', () => {
     await page.getByRole('button', { name: /إنشاء دعوى/ }).click();
     await expect(page).toHaveURL(/\/cases\/new$/);
 
-    // Wait for the org dropdowns to populate
-    const branchSelect = page.locator('select').nth(0);
-    await expect(branchSelect).toBeVisible();
-    // Choose first non-placeholder option in branch
-    const branchOption = await branchSelect.locator('option').nth(1).getAttribute('value');
-    expect(branchOption).toBeTruthy();
-    await branchSelect.selectOption(branchOption!);
-
-    const departmentSelect = page.locator('select').nth(1);
-    await expect(departmentSelect.locator('option').nth(1)).toBeAttached({ timeout: 10_000 });
-    const deptOption = await departmentSelect.locator('option').nth(1).getAttribute('value');
-    expect(deptOption).toBeTruthy();
-    await departmentSelect.selectOption(deptOption!);
-
-    // Stage type stays = FIRST_INSTANCE (default)
-    // Court (4th select after branch/dept/stageType)
-    const courtSelect = page.locator('select').nth(3);
-    await expect(courtSelect.locator('option').nth(1)).toBeAttached({ timeout: 10_000 });
-    const courtOption = await courtSelect.locator('option').nth(1).getAttribute('value');
-    expect(courtOption).toBeTruthy();
-    await courtSelect.selectOption(courtOption!);
+    // PR-15a iter 4 (customer feedback): a single-section section head no longer
+    // sees branch/department/stage-type pickers — they're auto-locked to the
+    // user's section. Only the court picker remains. Plus the legal entity
+    // position select. Court is now `select.nth(1)` (after publicEntityPosition).
+    // Fall back: if the dropdowns ARE visible (mode != lockedSectionHead),
+    // pick the first non-empty option for each.
+    const allSelects = page.locator('select');
+    const totalSelects = await allSelects.count();
+    if (totalSelects >= 4) {
+      // Old layout — full picker set still visible.
+      const branchSelect = allSelects.nth(0);
+      await branchSelect.selectOption(
+        (await branchSelect.locator('option').nth(1).getAttribute('value'))!,
+      );
+      const departmentSelect = allSelects.nth(1);
+      await expect(departmentSelect.locator('option').nth(1)).toBeAttached({ timeout: 10_000 });
+      await departmentSelect.selectOption(
+        (await departmentSelect.locator('option').nth(1).getAttribute('value'))!,
+      );
+      const courtSelect = allSelects.nth(3);
+      await expect(courtSelect.locator('option').nth(1)).toBeAttached({ timeout: 10_000 });
+      await courtSelect.selectOption(
+        (await courtSelect.locator('option').nth(1).getAttribute('value'))!,
+      );
+    } else {
+      // Locked section-head layout — only publicEntityPosition + court.
+      const courtSelect = page.locator('label:has-text("المحكمة")')
+        .locator('xpath=following::select[1]');
+      await expect(courtSelect.locator('option').nth(1)).toBeAttached({ timeout: 10_000 });
+      await courtSelect.selectOption(
+        (await courtSelect.locator('option').nth(1).getAttribute('value'))!,
+      );
+    }
 
     // Fill text fields
     const unique = Date.now().toString().slice(-6);
@@ -53,11 +65,9 @@ test.describe('3) Create case (SECTION_HEAD path)', () => {
     // page.getByLabel() can't associate; use fieldByLabel walker instead.
     await fieldByLabel(page, 'اسم الجهة العامة').fill('وزارة الاختبار E2E');
     await fieldByLabel(page, 'اسم الخصم').fill('شركة الاختبار E2E');
-    await fieldByLabel(page, 'رقم الأساس الأصلي').fill(`E2E-O-${unique}`);
-    await fieldByLabel(page, 'سنة الأساس الأصلي').fill('2026');
-    await fieldByLabel(page, 'تاريخ القيد الأصلي').fill('2026-01-15');
-    await fieldByLabel(page, 'رقم أساس المرحلة').fill(`E2E-S-${unique}`);
-    await fieldByLabel(page, 'سنة المرحلة').fill('2026');
+    await fieldByLabel(page, 'رقم الأساس').fill(`E2E-O-${unique}`);
+    await fieldByLabel(page, 'تاريخ تسجيل الملف').fill('2026-01-15');
+    await fieldByLabel(page, 'رقم أساس الدعوى').fill(`E2E-S-${unique}`);
     await fieldByLabel(page, 'تاريخ الجلسة الأولى').fill('2026-06-01');
     await fieldByLabel(page, 'سبب التأجيل الأول').fill('سبب اختبار E2E');
 

@@ -23,14 +23,45 @@ import java.util.List;
  *   <li>{@code USERS} — explicit user-id list. Each user must be reachable
  *       by the caller's role under the rules above.</li>
  * </ul>
+ *
+ * <p>Customer feedback round-2 (PR-15a): {@code branchIds} and {@code departmentIds}
+ * accept multiple targets — admin can broadcast to several branches at once, and a
+ * branch head / admin can broadcast to several sections at once. The single-valued
+ * {@code branchId} / {@code departmentId} are kept for backwards compatibility; if
+ * both shapes are sent the server uses the union.
  */
 public record BroadcastRequest(
         @NotNull Scope scope,
         Long branchId,
         Long departmentId,
+        List<Long> branchIds,
+        List<Long> departmentIds,
         List<Long> userIds,
         @NotBlank @Size(max = 200) String title,
         @NotBlank @Size(max = 2000) String body
 ) {
-    public enum Scope { ALL, BRANCH, DEPARTMENT, USERS }
+    /**
+     * Customer feedback round-2 (PR-15a iteration): {@code CUSTOM} computes the
+     * UNION of (lawyers in branchIds) ∪ (lawyers in departmentIds) ∪ (named
+     * userIds). Each individual id is gated against the caller's reach. Lets a
+     * single broadcast target several branches AND several sections AND specific
+     * lawyers in one shot — replacing the older mutually-exclusive scope dropdown.
+     */
+    public enum Scope { ALL, BRANCH, DEPARTMENT, USERS, CUSTOM }
+
+    /** Union of legacy {@code branchId} + {@code branchIds}, deduplicated, never null. */
+    public List<Long> effectiveBranchIds() {
+        java.util.LinkedHashSet<Long> out = new java.util.LinkedHashSet<>();
+        if (branchId != null) out.add(branchId);
+        if (branchIds != null) for (Long b : branchIds) if (b != null) out.add(b);
+        return new java.util.ArrayList<>(out);
+    }
+
+    /** Union of legacy {@code departmentId} + {@code departmentIds}, deduplicated, never null. */
+    public List<Long> effectiveDepartmentIds() {
+        java.util.LinkedHashSet<Long> out = new java.util.LinkedHashSet<>();
+        if (departmentId != null) out.add(departmentId);
+        if (departmentIds != null) for (Long d : departmentIds) if (d != null) out.add(d);
+        return new java.util.ArrayList<>(out);
+    }
 }

@@ -57,6 +57,11 @@ public class LitigationCase {
     @Column(name = "chamber_name", length = 128)
     private String chamberName;
 
+    /** Customer feedback round-2: jurisdictional flavour of the originating court. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "court_type", nullable = false, length = 32)
+    private CourtType courtType;
+
     /** Forward reference (no FK). */
     @Column(name = "current_stage_id")
     private Long currentStageId;

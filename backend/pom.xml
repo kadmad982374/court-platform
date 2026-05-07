@@ -149,6 +149,13 @@
                 <configuration>
                     <source>21</source>
                     <target>21</target>
+                    <!-- Customer feedback round-2 (PR-15a): pin javac encoding to UTF-8.
+                         Without this, on Windows javac falls back to cp1252 and Arabic
+                         string literals in test sources become "????" — making any test
+                         that asserts on Arabic content (e.g. CasesApiIT.updateBasicData...)
+                         fail with mojibake. ${project.build.sourceEncoding} alone wasn't
+                         being honoured in this environment. -->
+                    <encoding>UTF-8</encoding>
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.projectlombok</groupId>

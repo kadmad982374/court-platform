@@ -336,9 +336,9 @@ test.describe('Full-system demo (single video)', () => {
     ).toBeVisible({ timeout: 15_000 });
     await pause(page, PAUSE_MEDIUM);
 
-    if (await buttonReady(page, /ترقية إلى الاستئناف/)) {
+    if (await buttonReady(page, /(?:نقل الملف|ترقية) إلى الاستئناف/)) {
       SECTION('4) SECTION_HEAD — REAL promote-to-APPEAL');
-      await page.getByRole('button', { name: /ترقية إلى الاستئناف/ }).click();
+      await page.getByRole('button', { name: /(?:نقل الملف|ترقية) إلى الاستئناف/ }).click();
       await pause(page, PAUSE_LONG);
       NOTE('Promoted; new APPEAL stage created, parent stage marked read-only.');
     } else {
@@ -384,10 +384,10 @@ test.describe('Full-system demo (single video)', () => {
     await loginVisible(page, 'sectionHead');
     SECTION(`4c) SECTION_HEAD — REAL promote-to-EXECUTION on case #${demoCaseId}`);
     await page.goto(`/cases/${demoCaseId}`);
-    if (await buttonReady(page, /ترقية إلى التنفيذ/)) {
-      await page.getByRole('button', { name: /ترقية إلى التنفيذ/ }).click();
+    if (await buttonReady(page, /(?:نقل الملف|ترقية) إلى التنفيذ/)) {
+      await page.getByRole('button', { name: /(?:نقل الملف|ترقية) إلى التنفيذ/ }).click();
       await expect(
-        page.getByRole('dialog').or(page.getByText(/ترقية الدعوى إلى ملف تنفيذي/)).first(),
+        page.getByRole('dialog').or(page.getByText(/(?:نقل|ترقية) الدعوى إلى ملف تنفيذي/)).first(),
       ).toBeVisible({ timeout: 10_000 });
       await page.locator('input[name="enforcingEntityName"]').fill('وزارة العرض التوضيحي');
       await page.locator('input[name="executedAgainstName"]').fill('شركة العرض التوضيحي');

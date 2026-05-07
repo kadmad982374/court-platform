@@ -72,13 +72,13 @@ test.describe('10) Known documented gaps (skipped on purpose)', () => {
     ).toBeVisible({ timeout: 15_000 });
 
     // The promote button is always visible for SECTION_HEAD (role-based, not state-based).
-    const promoteBtn = page.getByRole('button', { name: /ترقية إلى التنفيذ/ });
+    const promoteBtn = page.getByRole('button', { name: /(?:نقل الملف|ترقية) إلى التنفيذ/ });
     await expect(promoteBtn).toBeVisible({ timeout: 10_000 });
     await promoteBtn.click();
 
     // Modal must appear.
     await expect(
-      page.getByRole('dialog').or(page.getByText(/ترقية الدعوى إلى ملف تنفيذي/)).first(),
+      page.getByRole('dialog').or(page.getByText(/(?:نقل|ترقية) الدعوى إلى ملف تنفيذي/)).first(),
     ).toBeVisible({ timeout: 10_000 });
 
     // Fill the form.

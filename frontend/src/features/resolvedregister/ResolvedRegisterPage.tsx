@@ -10,7 +10,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/api/http';
 import { listBranches, listCourts, listDepartments } from '@/shared/api/lookups';
 import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card';
@@ -18,6 +18,7 @@ import { PageHeader } from '@/shared/ui/PageHeader';
 import { Spinner } from '@/shared/ui/Spinner';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/Input';
+import { ScrollYearPicker } from '@/shared/ui/ScrollYearPicker';
 import { Select } from '@/shared/ui/FormFields';
 import { Table, TBody, TD, TH, THead, TR } from '@/shared/ui/Table';
 import { extractApiErrorMessage } from '@/shared/lib/apiError';
@@ -57,11 +58,14 @@ async function fetchResolved(f: Filters): Promise<ResolvedRegisterEntry[]> {
 // ──────────────────────────────────────────────────────────────
 // Role → which filters to expose (mirrors CasesListPage's detectMode)
 // ──────────────────────────────────────────────────────────────
+type LawyerSection = { branchId: number; departmentId: number };
+
 type FilterMode =
   | { kind: 'admin' }
   | { kind: 'branch_head'; branchId: number }
   | { kind: 'dept_member'; branchId: number; departmentId: number }
-  | { kind: 'lawyer' }
+  /** Customer feedback round-2 — see CasesListPage for the rationale. */
+  | { kind: 'lawyer'; sections: LawyerSection[] }
   | { kind: 'none' };
 
 function detectMode(user: CurrentUser | null): FilterMode {
@@ -87,7 +91,14 @@ function detectMode(user: CurrentUser | null): FilterMode {
       departmentId: deptMembership.departmentId,
     };
   }
-  if (hasRole(user, 'STATE_LAWYER')) return { kind: 'lawyer' };
+  if (hasRole(user, 'STATE_LAWYER')) {
+    const sections = user.departmentMemberships
+      .filter((m) => m.active
+        && m.membershipType === 'STATE_LAWYER'
+        && m.departmentId != null)
+      .map((m) => ({ branchId: m.branchId, departmentId: m.departmentId as number }));
+    return { kind: 'lawyer', sections };
+  }
   return { kind: 'none' };
 }
 
@@ -257,21 +268,91 @@ function FilterForm({
     }
   }, [mode, pending.departmentId, setPending]);
 
+  // Customer feedback round-2: lawyer section picker — see CasesListPage.
+  const lawyerSections = mode.kind === 'lawyer' ? mode.sections : [];
+  const lawyerBranchIds = useMemo(
+    () => Array.from(new Set(lawyerSections.map((s) => s.branchId))),
+    [lawyerSections],
+  );
+
+  const allBranchesQ = useQuery({
+    queryKey: ['lookups', 'branches'],
+    queryFn: () => listBranches(),
+    enabled: lawyerSections.length >= 2,
+    staleTime: 60_000,
+  });
+
+  const lawyerDeptsQs = useQueries({
+    queries: lawyerBranchIds.map((bId) => ({
+      queryKey: ['lookups', 'departments', bId],
+      queryFn: () => listDepartments(bId),
+      staleTime: 60_000,
+      enabled: lawyerSections.length >= 2,
+    })),
+  });
+
+  const lawyerSectionOptions = useMemo(() => {
+    if (lawyerSections.length < 2) return [];
+    const branchById = new Map((allBranchesQ.data ?? []).map((b) => [b.id, b.nameAr]));
+    const deptById = new Map<number, Department>();
+    lawyerDeptsQs.forEach((q) => (q.data ?? []).forEach((d) => deptById.set(d.id, d)));
+    return lawyerSections.map((s) => {
+      const dept = deptById.get(s.departmentId);
+      const branchName = branchById.get(s.branchId);
+      const deptName = dept ? (dept.nameAr || DEPARTMENT_TYPE_LABEL_AR[dept.type]) : '...';
+      return {
+        branchId: s.branchId,
+        departmentId: s.departmentId,
+        label: branchName ? `${deptName} - ${branchName}` : deptName,
+      };
+    });
+  }, [lawyerSections, allBranchesQ.data, lawyerDeptsQs]);
+
   return (
     <form
       className="grid grid-cols-1 gap-3 md:grid-cols-6"
       onSubmit={(e) => { e.preventDefault(); onApply(); }}
     >
+      {/* Customer feedback round-2: state-lawyer section picker. */}
+      {mode.kind === 'lawyer' && lawyerSectionOptions.length >= 2 && (
+        <Field label="القسم">
+          <Select
+            value={pending.departmentId != null && pending.branchId != null
+              ? `${pending.branchId}-${pending.departmentId}`
+              : ''}
+            onChange={(e) => setPending((p) => {
+              const v = e.target.value;
+              if (!v) return { ...p, branchId: undefined, departmentId: undefined };
+              const [b, d] = v.split('-').map(Number);
+              return { ...p, branchId: b, departmentId: d, courtId: undefined };
+            })}
+          >
+            <option value="">جميع أقسامي</option>
+            {lawyerSectionOptions.map((o) => (
+              <option key={`${o.branchId}-${o.departmentId}`} value={`${o.branchId}-${o.departmentId}`}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
+
       <Field label="السنة">
-        <Input
-          type="number"
-          value={pending.year ?? ''}
-          onChange={(e) => setPending((p) => ({ ...p, year: e.target.value }))}
+        <ScrollYearPicker
+          value={pending.year}
+          onChange={(y) => setPending((p) => ({
+            ...p, year: y == null ? undefined : String(y),
+          }))}
         />
       </Field>
       <Field label="الشهر (1-12)">
         <Input
-          type="number" min={1} max={12}
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={12}
+          step={1}
+          placeholder="1-12"
           value={pending.month ?? ''}
           onChange={(e) => setPending((p) => ({ ...p, month: e.target.value }))}
         />
@@ -328,7 +409,7 @@ function FilterForm({
             }))}
           >
             <option value="">الكل</option>
-            {(courtsQ.data ?? []).map((c) => (
+            {(courtsQ.data ?? []).filter((c) => c.active).map((c) => (
               <option key={c.id} value={c.id}>{c.nameAr}</option>
             ))}
           </Select>

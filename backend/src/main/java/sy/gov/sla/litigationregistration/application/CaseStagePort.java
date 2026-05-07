@@ -49,6 +49,16 @@ public interface CaseStagePort {
     NewAppealStageInfo promoteCurrentStageToAppeal(Long caseId, Long actorUserId);
 
     /**
+     * Customer feedback round-2: atomic write for "نقل الملف إلى الصلح".
+     * Mirrors {@link #promoteCurrentStageToAppeal} but creates a CONCILIATION
+     * stage instead. Source stage becomes read-only +
+     * stage_status=PROMOTED_TO_CONCILIATION. Lifecycle stays ACTIVE — there's
+     * no dedicated "IN_CONCILIATION" lifecycle state and the customer didn't
+     * ask for one.
+     */
+    NewConciliationStageInfo promoteCurrentStageToConciliation(Long caseId, Long actorUserId);
+
+    /**
      * Promote-to-execution كتابة ذرّية في وحدة litigationregistration:
      *  - يضع المرحلة الحالية read_only=true و stage_status=PROMOTED_TO_EXECUTION (مع endedAt إن لم يُملأ).
      *  - لا يُنشئ CaseStage جديدة (التنفيذ ليس CaseStage — D-003).
@@ -97,6 +107,12 @@ public interface CaseStagePort {
     ) {}
 
     record NewAppealStageInfo(
+            Long newStageId,
+            Long parentStageId,
+            Long caseId
+    ) {}
+
+    record NewConciliationStageInfo(
             Long newStageId,
             Long parentStageId,
             Long caseId

@@ -8,6 +8,7 @@ import {
   getCase,
   listCaseStages,
   promoteToAppeal,
+  promoteToConciliation,
   promoteToExecution,
 } from './api';
 import { EditCaseBasicDataModal } from './EditCaseBasicDataModal';
@@ -19,6 +20,7 @@ import {
   canCorrectFinalizedCase,
   canEditCaseBasicData,
   canPromoteToAppeal,
+  canPromoteToConciliation,
   canPromoteToExecution,
 } from '@/features/auth/permissions';
 import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card';
@@ -91,6 +93,17 @@ export function CaseDetailPage() {
     onError: (e) => setActionError(extractApiErrorMessage(e)),
   });
 
+  // Customer feedback round-2: "نقل الملف إلى الصلح".
+  const promoteConcilMut = useMutation({
+    mutationFn: () => promoteToConciliation(caseId),
+    onSuccess: () => {
+      setActionError(null);
+      void qc.invalidateQueries({ queryKey: ['cases', caseId] });
+      void qc.invalidateQueries({ queryKey: ['cases', caseId, 'stages'] });
+    },
+    onError: (e) => setActionError(extractApiErrorMessage(e)),
+  });
+
   const promoteExecMut = useMutation({
     mutationFn: (body: PromoteToExecutionRequest) => promoteToExecution(caseId, body),
     onSuccess: (file) => {
@@ -118,6 +131,7 @@ export function CaseDetailPage() {
   const showActionsCard =
     canEditCaseBasicData(user, caseQ.data ?? null)
     || canPromoteToAppeal(user)
+    || canPromoteToConciliation(user)
     || canPromoteToExecution(user)
     || canCorrect;
 
@@ -178,8 +192,8 @@ export function CaseDetailPage() {
             </CardHeader>
             <CardBody className="space-y-3">
               <p className="text-xs text-slate-500">
-                تظهر الأزرار فقط للمستخدمين المخوّلين وفق D-027 (الترقية للاستئناف)
-                و D-030 (الترقية للتنفيذ). المنع الحقيقي على الخادم.
+                تظهر الأزرار فقط للمستخدمين المخوّلين وفق D-027 (نقل الملف إلى الاستئناف)
+                و D-030 (نقل الملف إلى التنفيذ). المنع الحقيقي على الخادم.
               </p>
 
               <div className="flex flex-wrap gap-2">
@@ -198,7 +212,19 @@ export function CaseDetailPage() {
                     onClick={() => promoteAppealMut.mutate()}
                   >
                     {promoteAppealMut.isPending ? <Spinner /> : null}
-                    <span>ترقية إلى الاستئناف</span>
+                    <span>نقل الملف إلى الاستئناف</span>
+                  </Button>
+                )}
+                {/* Customer feedback round-2: "نقل الملف إلى الصلح" — same gating
+                    as promote-to-appeal, server-side validation is authoritative. */}
+                {canPromoteToConciliation(user) && (
+                  <Button
+                    variant="secondary"
+                    disabled={promoteConcilMut.isPending}
+                    onClick={() => promoteConcilMut.mutate()}
+                  >
+                    {promoteConcilMut.isPending ? <Spinner /> : null}
+                    <span>نقل الملف إلى الصلح</span>
                   </Button>
                 )}
                 {canPromoteToExecution(user) && (
@@ -206,7 +232,7 @@ export function CaseDetailPage() {
                     variant="secondary"
                     onClick={() => setPromoteExecOpen(true)}
                   >
-                    ترقية إلى التنفيذ
+                    نقل الملف إلى التنفيذ
                   </Button>
                 )}
                 {canCorrect && (
@@ -376,7 +402,7 @@ function PromoteExecutionModal({
     <Modal
       open={open}
       onClose={() => { reset(); onClose(); }}
-      title="ترقية الدعوى إلى ملف تنفيذي"
+      title="نقل الدعوى إلى ملف تنفيذي"
       footer={
         <>
           <Button

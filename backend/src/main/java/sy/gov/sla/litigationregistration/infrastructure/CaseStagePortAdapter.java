@@ -168,6 +168,66 @@ public class CaseStagePortAdapter implements CaseStagePort {
 
     @Override
     @Transactional
+    public NewConciliationStageInfo promoteCurrentStageToConciliation(Long caseId, Long actorUserId) {
+        // Customer feedback round-2: mirror promoteCurrentStageToAppeal but
+        // produce a CONCILIATION stage. Source becomes read-only +
+        // PROMOTED_TO_CONCILIATION. Lifecycle stays ACTIVE — no dedicated
+        // IN_CONCILIATION state.
+        LitigationCase lc = caseRepo.findById(caseId)
+                .orElseThrow(() -> new NotFoundException("Case not found: " + caseId));
+        if (lc.getCurrentStageId() == null) {
+            throw new BadRequestException("NO_CURRENT_STAGE", "Case has no current stage");
+        }
+        CaseStage prev = stageRepo.findById(lc.getCurrentStageId())
+                .orElseThrow(() -> new NotFoundException("Current stage not found"));
+
+        Instant now = Instant.now();
+        prev.setReadOnly(true);
+        prev.setStageStatus(StageStatus.PROMOTED_TO_CONCILIATION);
+        if (prev.getEndedAt() == null) prev.setEndedAt(now);
+
+        Long concilDeptId = departmentRepo
+                .findByBranchIdAndType(prev.getBranchId(), DepartmentType.CONCILIATION)
+                .map(d -> d.getId())
+                .orElse(prev.getDepartmentId());
+
+        Long concilCourtId = courtRepo
+                .findByBranchIdAndDepartmentType(prev.getBranchId(), DepartmentType.CONCILIATION)
+                .stream().filter(c -> c.isActive()).findFirst()
+                .map(c -> c.getId())
+                .orElse(prev.getCourtId());
+
+        CaseStage concil = CaseStage.builder()
+                .litigationCaseId(lc.getId())
+                .stageType(StageType.CONCILIATION)
+                .branchId(prev.getBranchId())
+                .departmentId(concilDeptId)
+                .courtId(concilCourtId)
+                .chamberName(prev.getChamberName())
+                .stageBasisNumber(prev.getStageBasisNumber())
+                .stageYear(prev.getStageYear())
+                .stageStatus(StageStatus.REGISTERED)
+                .parentStageId(prev.getId())
+                .readOnly(false)
+                .firstHearingDate(java.time.LocalDate.now())
+                .firstPostponementReason("تأسيس مرحلة صلح")
+                .startedAt(now)
+                .build();
+        concil = stageRepo.save(concil);
+
+        lc.setCurrentStageId(concil.getId());
+        // Ownership cleared — awaiting a new assign-lawyer on the conciliation stage.
+        lc.setCurrentOwnerUserId(null);
+        if (lc.getLifecycleStatus() == LifecycleStatus.NEW) {
+            lc.setLifecycleStatus(LifecycleStatus.ACTIVE);
+        }
+        lc.setUpdatedAt(now);
+
+        return new NewConciliationStageInfo(concil.getId(), prev.getId(), lc.getId());
+    }
+
+    @Override
+    @Transactional
     public PromoteToExecutionResult promoteCurrentStageToExecution(Long caseId, Long actorUserId) {
         LitigationCase lc = caseRepo.findById(caseId)
                 .orElseThrow(() -> new NotFoundException("Case not found: " + caseId));

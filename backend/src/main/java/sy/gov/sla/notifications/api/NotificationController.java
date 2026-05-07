@@ -46,6 +46,23 @@ public class NotificationController {
     }
 
     /**
+     * Customer feedback round-2 (PR-15a iteration) — preview the union of
+     * lawyers reachable by an arbitrary combination of branches, sections, and
+     * named user ids. Used by the new accumulative compose UI to show an
+     * accurate live recipient count. Each id is auth-checked against the
+     * caller's broadcast reach.
+     */
+    @GetMapping("/broadcast/recipients-union")
+    public List<BroadcastRecipientDto> listBroadcastRecipientsUnion(
+            @RequestParam(value = "branchIds",     required = false) List<Long> branchIds,
+            @RequestParam(value = "departmentIds", required = false) List<Long> departmentIds,
+            @RequestParam(value = "userIds",       required = false) List<Long> userIds) {
+        Long actor = SecurityUtils.currentUserOrThrow().userId();
+        return broadcastService.listEligibleRecipientsUnion(
+                actor, branchIds, departmentIds, userIds);
+    }
+
+    /**
      * PR-14 (customer feedback A-1 / Q-G expansion) — fan-out a broadcast to
      * every state lawyer matching the (scope, branchId, departmentId, userIds)
      * tuple. Sender role and scope are re-validated server-side.

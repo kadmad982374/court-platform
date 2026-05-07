@@ -78,6 +78,7 @@ class LitigationCaseServiceListN1Test {
                 .createdBranchId(10L)
                 .createdDepartmentId(20L)
                 .createdCourtId(30L)
+                .courtType(sy.gov.sla.litigationregistration.domain.CourtType.GENERAL)
                 .lifecycleStatus(LifecycleStatus.ACTIVE)
                 .createdByUserId(1L)
                 .createdAt(Instant.now())

@@ -63,7 +63,9 @@ class JwtAuthenticationFilterTest {
 
         AtomicBoolean mdcSeenInsideChain = new AtomicBoolean(false);
         AtomicBoolean authSeenInsideChain = new AtomicBoolean(false);
-        FilterChain chain = (HttpServletRequest q, HttpServletResponse s) -> {
+        // FilterChain takes ServletRequest/ServletResponse (parent types), not the
+        // HTTP-specific subclasses — let Java infer.
+        FilterChain chain = (q, s) -> {
             mdcSeenInsideChain.set("alice".equals(MDC.get("username"))
                     && "11".equals(MDC.get("userId")));
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();

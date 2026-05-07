@@ -12,6 +12,9 @@ public enum StageStatus {
     FINALIZED,
     PROMOTED_TO_APPEAL,
     PROMOTED_TO_EXECUTION,
+    /** Customer feedback round-2: source stage of a "نقل الملف إلى الصلح" transfer.
+     *  Mirrors PROMOTED_TO_APPEAL but for transfers to a Conciliation stage. */
+    PROMOTED_TO_CONCILIATION,
     ARCHIVED
 }
 

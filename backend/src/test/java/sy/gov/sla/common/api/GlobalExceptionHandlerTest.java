@@ -73,8 +73,8 @@ class GlobalExceptionHandlerTest {
     @DisplayName("validation with null defaultMessage falls back to 'invalid'")
     void validation_with_null_message_falls_back() throws Exception {
         BindingResult br = new BeanPropertyBindingResult(new Object(), "target");
-        // reject with explicit null defaultMessage
-        br.rejectValue("field", "code", null, null, null);
+        // reject with explicit null defaultMessage (4-arg overload: field, errorCode, errorArgs, defaultMessage)
+        br.rejectValue("field", "code", null, null);
         MethodArgumentNotValidException ex = new MethodArgumentNotValidException(methodParameter(), br);
 
         ResponseEntity<ApiError> resp = handler.handleValidation(ex);

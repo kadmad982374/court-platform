@@ -77,8 +77,8 @@ export const DELEGATED_PERMISSION_LABEL_AR: Record<DelegatedPermissionCode, stri
   CORRECT_FINALIZED_CASE: 'تصحيح دعوى مفصولة',
   DIRECT_FINALIZE_CASE:   'فصل مباشر للدعوى',
   MANAGE_COURT_ACCESS:    'إدارة الوصول للمحاكم',
-  PROMOTE_TO_APPEAL:      'ترقية إلى الاستئناف',
-  PROMOTE_TO_EXECUTION:   'ترقية إلى التنفيذ',
+  PROMOTE_TO_APPEAL:      'نقل الملف إلى الاستئناف',
+  PROMOTE_TO_EXECUTION:   'نقل الملف إلى التنفيذ',
   ADD_EXECUTION_STEP:     'إضافة خطوة تنفيذية',
 };
 
@@ -206,6 +206,36 @@ export const PUBLIC_ENTITY_POSITION_LABEL_AR: Record<PublicEntityPosition, strin
   DEFENDANT: 'مدّعى عليها',
 };
 
+/**
+ * Customer feedback round-2: jurisdictional flavour of a case's originating
+ * court ("نوع المحكمة"). Required on case creation.
+ */
+export type CourtType =
+  | 'URGENT'
+  | 'MARITIME'
+  | 'BANKING'
+  | 'LABOR'
+  | 'GENERAL'
+  | 'INSURANCE'
+  | 'CUSTOMS'
+  | 'ADMINISTRATIVE';
+
+export const COURT_TYPE_LABEL_AR: Record<CourtType, string> = {
+  URGENT:         'مستعجل',
+  MARITIME:       'بحري',
+  BANKING:        'مصرفي',
+  LABOR:          'عمالي',
+  GENERAL:        'عادي',
+  INSURANCE:      'تأمين',
+  CUSTOMS:        'جمركي',
+  ADMINISTRATIVE: 'إدارية',
+};
+
+export const COURT_TYPE_OPTIONS: readonly CourtType[] = [
+  'URGENT', 'MARITIME', 'BANKING', 'LABOR',
+  'GENERAL', 'INSURANCE', 'CUSTOMS', 'ADMINISTRATIVE',
+] as const;
+
 export type StageType = 'CONCILIATION' | 'FIRST_INSTANCE' | 'APPEAL';
 export const STAGE_TYPE_LABEL_AR: Record<StageType, string> = {
   CONCILIATION:   'مصالحة',
@@ -220,15 +250,17 @@ export type StageStatus =
   | 'FINALIZED'
   | 'PROMOTED_TO_APPEAL'
   | 'PROMOTED_TO_EXECUTION'
+  | 'PROMOTED_TO_CONCILIATION'
   | 'ARCHIVED';
 export const STAGE_STATUS_LABEL_AR: Record<StageStatus, string> = {
-  REGISTERED:            'مسجَّلة',
-  ASSIGNED:              'مُسنَدة',
-  IN_PROGRESS:           'قيد المتابعة',
-  FINALIZED:             'مفصولة',
-  PROMOTED_TO_APPEAL:    'مُرقّاة إلى الاستئناف',
-  PROMOTED_TO_EXECUTION: 'مُرقّاة إلى التنفيذ',
-  ARCHIVED:              'مؤرشفة',
+  REGISTERED:               'مسجَّلة',
+  ASSIGNED:                 'مُسنَدة',
+  IN_PROGRESS:              'قيد المتابعة',
+  FINALIZED:                'مفصولة',
+  PROMOTED_TO_APPEAL:       'مُحوّلة إلى الاستئناف',
+  PROMOTED_TO_EXECUTION:    'مُحوّلة إلى التنفيذ',
+  PROMOTED_TO_CONCILIATION: 'مُحوّلة إلى الصلح',
+  ARCHIVED:                 'مؤرشفة',
 };
 
 export type LifecycleStatus = 'NEW' | 'ACTIVE' | 'IN_APPEAL' | 'IN_EXECUTION' | 'CLOSED';
@@ -272,6 +304,8 @@ export interface LitigationCase {
   createdDepartmentId: number;
   createdCourtId: number;
   chamberName: string | null;
+  /** Customer feedback round-2: نوع المحكمة. */
+  courtType: CourtType;
   currentStageId: number | null;
   currentOwnerUserId: number | null;
   lifecycleStatus: LifecycleStatus;
@@ -396,6 +430,14 @@ export interface PromoteToAppealResponse {
   caseId: number;
   previousStageId: number;
   newAppealStageId: number;
+  lifecycleStatus: string;
+}
+
+/** Customer feedback round-2: response from "نقل الملف إلى الصلح". */
+export interface PromoteToConciliationResponse {
+  caseId: number;
+  previousStageId: number;
+  newConciliationStageId: number;
   lifecycleStatus: string;
 }
 
@@ -608,6 +650,8 @@ export interface CreateCaseRequest {
   departmentId: number;
   courtId: number;
   chamberName?: string | null;
+  /** Customer feedback round-2: required نوع المحكمة. */
+  courtType: CourtType;
   stageType: StageType;
   stageBasisNumber: string;
   stageYear: number;

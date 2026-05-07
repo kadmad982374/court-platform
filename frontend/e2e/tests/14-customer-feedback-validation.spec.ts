@@ -172,7 +172,7 @@ test.describe('C — SECTION_HEAD', () => {
     await expect(row.first()).toBeVisible({ timeout: 15_000 });
     await row.getByRole('button', { name: /^فتح$/ }).click();
 
-    const promote = page.getByRole('button', { name: /ترقية إلى التنفيذ/ });
+    const promote = page.getByRole('button', { name: /(?:نقل الملف|ترقية) إلى التنفيذ/ });
     await expect(promote).toBeVisible({ timeout: 10_000 });
     await promote.click();
 
@@ -275,10 +275,12 @@ test.describe('D — ADMIN_CLERK', () => {
 // ────────────────────────────────────────────────────────────
 
 test.describe('E — EXECUTION', () => {
-  test('E-2 / Q-A — execution-files page exposes "المنطقة (المحكمة)" filter', async ({ page }) => {
+  test('E-2 / Q-A — execution-files page exposes the execution-circle filter', async ({ page }) => {
+    // PR-15a iteration: label renamed from "المنطقة (المحكمة)" → "دائرة التنفيذ"
+    // and the dropdown now lists only EXECUTION-type courts (دوائر التنفيذ).
     await loginAs(page, 'admin');
     await page.goto('/execution-files');
-    await expect(page.locator('label:has-text("المنطقة (المحكمة)")').first()).toBeVisible();
+    await expect(page.locator('label:has-text("دائرة التنفيذ")').first()).toBeVisible();
   });
 
   test('E-3 — sidebar has "الملفات المنفّذة" pre-applying status=CLOSED', async ({ page }) => {

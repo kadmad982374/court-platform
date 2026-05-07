@@ -112,6 +112,7 @@ class ProgressionAndFinalizationIT extends AbstractIntegrationTest {
                 + "\"originalRegistrationDate\":\"2026-04-01\","
                 + "\"branchId\":" + branchId + ",\"departmentId\":" + deptId + ",\"courtId\":" + courtId + ","
                 + "\"chamberName\":\"غ1\","
+                + "\"courtType\":\"GENERAL\","
                 + "\"stageType\":\"FIRST_INSTANCE\","
                 + "\"stageBasisNumber\":\"S-" + System.nanoTime() + "\","
                 + "\"stageYear\":2026,"

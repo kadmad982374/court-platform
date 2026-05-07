@@ -322,7 +322,7 @@ test.describe('12-3) ADMIN_CLERK delegated promote', () => {
     await expect(page.getByText('المعلومات الأساسية')).toBeVisible({ timeout: 15_000 });
 
     // Clerk with PROMOTE_TO_APPEAL delegation should see the button
-    const promoteBtn = page.getByRole('button', { name: /ترقية إلى الاستئناف/ });
+    const promoteBtn = page.getByRole('button', { name: /(?:نقل الملف|ترقية) إلى الاستئناف/ });
     await expect(promoteBtn).toBeVisible({ timeout: 5_000 });
 
     // Execute the promote — intercept the network call. Accept either:
@@ -374,7 +374,7 @@ test.describe('12-3) ADMIN_CLERK delegated promote', () => {
     await expect(page.getByText('المعلومات الأساسية')).toBeVisible({ timeout: 15_000 });
 
     // Clerk with PROMOTE_TO_EXECUTION delegation should see the button
-    const promoteBtn = page.getByRole('button', { name: /ترقية إلى التنفيذ/ });
+    const promoteBtn = page.getByRole('button', { name: /(?:نقل الملف|ترقية) إلى التنفيذ/ });
     await expect(promoteBtn).toBeVisible({ timeout: 5_000 });
 
     // We don't submit here since the 11-case-detail-actions.spec.ts already
@@ -391,8 +391,8 @@ test.describe('12-3) ADMIN_CLERK delegated promote', () => {
     await page.goto('/cases/1');
     await expect(page.getByText('المعلومات الأساسية')).toBeVisible({ timeout: 15_000 });
 
-    await expect(page.getByRole('button', { name: /ترقية إلى الاستئناف/ })).not.toBeVisible({ timeout: 3_000 });
-    await expect(page.getByRole('button', { name: /ترقية إلى التنفيذ/ })).not.toBeVisible({ timeout: 3_000 });
+    await expect(page.getByRole('button', { name: /(?:نقل الملف|ترقية) إلى الاستئناف/ })).not.toBeVisible({ timeout: 3_000 });
+    await expect(page.getByRole('button', { name: /(?:نقل الملف|ترقية) إلى التنفيذ/ })).not.toBeVisible({ timeout: 3_000 });
   });
 
   test('READ_ONLY_SUPERVISOR does NOT see promote buttons', async ({ page }) => {
@@ -400,8 +400,8 @@ test.describe('12-3) ADMIN_CLERK delegated promote', () => {
     await page.goto('/cases/1');
     await expect(page.getByText('المعلومات الأساسية')).toBeVisible({ timeout: 15_000 });
 
-    await expect(page.getByRole('button', { name: /ترقية إلى الاستئناف/ })).not.toBeVisible({ timeout: 3_000 });
-    await expect(page.getByRole('button', { name: /ترقية إلى التنفيذ/ })).not.toBeVisible({ timeout: 3_000 });
+    await expect(page.getByRole('button', { name: /(?:نقل الملف|ترقية) إلى الاستئناف/ })).not.toBeVisible({ timeout: 3_000 });
+    await expect(page.getByRole('button', { name: /(?:نقل الملف|ترقية) إلى التنفيذ/ })).not.toBeVisible({ timeout: 3_000 });
   });
 });
 
