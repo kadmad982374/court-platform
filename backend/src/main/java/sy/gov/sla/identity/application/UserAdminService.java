@@ -157,6 +157,34 @@ public class UserAdminService {
     }
 
     // ============================================================
+    // DELETE
+    // ============================================================
+    /**
+     * Customer feedback round-2: explicit delete affordance for the admin.
+     *
+     * <p>Implemented as a soft-delete (sets {@code active = false}) — a hard
+     * row-delete would break FK references from cases, audit logs, and
+     * refresh tokens. The user can no longer log in once deactivated; the
+     * effect from an admin's perspective is the same as a delete.
+     *
+     * <p>Self-delete is rejected (an admin can't lock themselves out).
+     * Idempotent — deactivating an already-inactive user is a no-op.
+     */
+    public void delete(Long id, Long actorUserId) {
+        requireCentral(actorUserId);
+        if (id.equals(actorUserId)) {
+            throw new BadRequestException("CANNOT_DELETE_SELF",
+                    "You cannot delete your own account");
+        }
+        User u = userRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("User not found: " + id));
+        if (u.isActive()) {
+            u.setActive(false);
+        }
+        UserActionLog.action("deleted (deactivated) user #{} — username={}", id, u.getUsername());
+    }
+
+    // ============================================================
     // LIST (paginated)
     // ============================================================
     @Transactional(readOnly = true)

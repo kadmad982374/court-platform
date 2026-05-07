@@ -78,6 +78,14 @@ export async function patchUser(
   return r.data;
 }
 
+/**
+ * Customer feedback round-2: explicit delete (soft-delete, sets active=false).
+ * Returns 204 — no response body.
+ */
+export async function deleteUser(id: number): Promise<void> {
+  await http.delete(`/users/${id}`);
+}
+
 export async function addRole(id: number, role: RoleCode): Promise<void> {
   await http.post(`/users/${id}/roles`, { role });
 }
@@ -111,6 +119,14 @@ export async function addDelegated(
     `/users/${id}/delegated-permissions`, body,
   );
   return r.data;
+}
+
+/**
+ * Customer feedback round-2: hard-remove a delegated permission row.
+ * Backend route: DELETE /api/v1/users/{id}/delegated-permissions/{pid}
+ */
+export async function removeDelegated(id: number, pid: number): Promise<void> {
+  await http.delete(`/users/${id}/delegated-permissions/${pid}`);
 }
 
 export async function patchDelegated(

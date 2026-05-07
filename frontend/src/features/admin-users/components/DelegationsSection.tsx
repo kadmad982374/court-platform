@@ -22,6 +22,7 @@ import {
 import {
   useAddDelegated,
   usePatchDelegated,
+  useRemoveDelegated,
 } from '../hooks/useUsersAdmin';
 
 const schema = z.object({
@@ -127,8 +128,10 @@ export function DelegationsSection({ userId, delegations }: Props) {
 function DelegationRow({
   userId, permission,
 }: { userId: number; permission: DelegatedPermission }) {
-  const patchM = usePatchDelegated(userId, permission.id);
+  const patchM  = usePatchDelegated(userId, permission.id);
+  const removeM = useRemoveDelegated(userId);
   const [err, setErr] = useState<string | null>(null);
+
   const toggle = () => {
     setErr(null);
     patchM.mutate(
@@ -136,20 +139,46 @@ function DelegationRow({
       { onError: (e) => setErr(extractApiErrorMessage(e)) },
     );
   };
+
+  // Customer feedback round-2: hard-remove the row entirely (not just flip
+  // `granted`). Confirms first to avoid an accidental click.
+  const remove = () => {
+    setErr(null);
+    if (!window.confirm(
+      `هل تريد حذف هذه الصلاحية: ${DELEGATED_PERMISSION_LABEL_AR[permission.code]}؟`,
+    )) return;
+    removeM.mutate(permission.id, {
+      onError: (e) => setErr(extractApiErrorMessage(e)),
+    });
+  };
+
+  const busy = patchM.isPending || removeM.isPending;
+
   return (
     <TR>
       <TD>{DELEGATED_PERMISSION_LABEL_AR[permission.code]}</TD>
       <TD>{permission.granted ? 'ممنوحة' : 'محجوبة'}</TD>
       <TD>
-        <button
-          type="button"
-          className="text-xs text-brand-700 hover:underline"
-          aria-label={`toggle-${permission.code}`}
-          disabled={patchM.isPending}
-          onClick={toggle}
-        >
-          {permission.granted ? 'حجب' : 'منح'}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            className="text-xs text-brand-700 hover:underline disabled:opacity-50"
+            aria-label={`toggle-${permission.code}`}
+            disabled={busy}
+            onClick={toggle}
+          >
+            {permission.granted ? 'حجب' : 'منح'}
+          </button>
+          <button
+            type="button"
+            className="text-xs text-red-600 hover:text-red-800 hover:underline disabled:opacity-50"
+            aria-label={`remove-${permission.code}`}
+            disabled={busy}
+            onClick={remove}
+          >
+            حذف
+          </button>
+        </div>
         {err && <span className="block text-xs text-red-600" role="alert">{err}</span>}
       </TD>
     </TR>

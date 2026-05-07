@@ -71,6 +71,25 @@ public class UserDelegationAdminService {
         return toDto(p);
     }
 
+    /**
+     * Customer feedback round-2: hard-remove a delegated permission row
+     * (rather than just toggling {@code granted=false}). Useful when a
+     * permission was added by mistake and the admin wants the row gone.
+     * Same scope rules as upsert/patch.
+     */
+    public void delete(Long userId, Long permissionId, Long actorUserId) {
+        UserDelegatedPermission p = delegatedRepo.findById(permissionId)
+                .orElseThrow(() -> new NotFoundException("Delegated permission not found: " + permissionId));
+        if (!p.getUserId().equals(userId)) {
+            throw new NotFoundException("Delegated permission not found for user " + userId);
+        }
+        AuthorizationContext actor = authorizationService.loadContext(actorUserId);
+        requireScope(actor, userId);
+
+        delegatedRepo.delete(p);
+        UserActionLog.action("deleted delegation '{}' from user #{}", p.getPermissionCode(), userId);
+    }
+
     public DelegatedPermissionDto patch(Long userId, Long permissionId,
                                         UpdateDelegatedPermissionRequest req, Long actorUserId) {
         UserDelegatedPermission p = delegatedRepo.findById(permissionId)

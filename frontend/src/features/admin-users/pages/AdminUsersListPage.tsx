@@ -25,6 +25,7 @@ import { ALL_ROLES, ROLE_LABEL_AR, type RoleCode } from '@/shared/types/domain';
 
 import { useUsersAdminList } from '../hooks/useUsersAdmin';
 import { CreateUserModal } from '../components/CreateUserModal';
+import { DeleteUserButton } from '../components/DeleteUserButton';
 import type { AdminUsersListParams } from '../api/usersAdmin';
 
 const PAGE_SIZE = 20;
@@ -192,7 +193,7 @@ export function AdminUsersListPage() {
                       <TH>اسم المستخدم</TH>
                       <TH>الأدوار</TH>
                       <TH>نشط</TH>
-                      <TH>تفاصيل</TH>
+                      <TH>إجراءات</TH>
                     </TR>
                   </THead>
                   <TBody>
@@ -207,12 +208,21 @@ export function AdminUsersListPage() {
                         </TD>
                         <TD>{u.active ? 'نعم' : 'لا'}</TD>
                         <TD>
-                          <Link
-                            to={`/admin/users/${u.id}`}
-                            className="text-xs text-brand-700 hover:underline"
-                          >
-                            فتح
-                          </Link>
+                          <div className="flex items-center gap-3">
+                            <Link
+                              to={`/admin/users/${u.id}`}
+                              className="text-xs text-brand-700 hover:underline"
+                            >
+                              تعديل
+                            </Link>
+                            <DeleteUserButton
+                              userId={u.id}
+                              username={u.username}
+                              fullName={u.fullName}
+                              active={u.active}
+                              asListAction
+                            />
+                          </div>
                         </TD>
                       </TR>
                     ))}

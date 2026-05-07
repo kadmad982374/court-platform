@@ -69,17 +69,23 @@ public class BroadcastService {
 
         if (rows.isEmpty()) return List.of();
 
-        Set<Long> userIds = rows.stream()
-                .map(UserDepartmentMembership::getUserId)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+        // Customer feedback round-2 (PR-15a iter): dedupe by userId so a lawyer
+        // with two STATE_LAWYER memberships (e.g. FI + Appeal in the same
+        // branch — see V30 demo seed) renders once in the picker, not once
+        // per membership row. Same fix already lives in
+        // listEligibleRecipientsUnion below — bringing this legacy listing
+        // into line. Representative (branchId, departmentId) = the first row
+        // we see for that user (membership rows arrive in id order).
+        Map<Long, UserDepartmentMembership> firstRowByUser = new java.util.LinkedHashMap<>();
+        for (UserDepartmentMembership m : rows) {
+            firstRowByUser.putIfAbsent(m.getUserId(), m);
+        }
 
-        Map<Long, User> users = userRepo.findAllById(userIds).stream()
+        Map<Long, User> users = userRepo.findAllById(firstRowByUser.keySet()).stream()
                 .filter(User::isActive)
                 .collect(Collectors.toMap(User::getId, u -> u));
 
-        // Use the row's (branchId, departmentId) so the picker shows the user
-        // under the correct department even if they belong to multiple.
-        return rows.stream()
+        return firstRowByUser.values().stream()
                 .filter(m -> users.containsKey(m.getUserId()))
                 .map(m -> {
                     User u = users.get(m.getUserId());

@@ -9,10 +9,11 @@
 //
 // CENTRAL_SUPERVISOR only (also enforced at route level via RequireAuth).
 
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { Card, CardBody } from '@/shared/ui/Card';
+import { Button } from '@/shared/ui/Button';
 import { Spinner } from '@/shared/ui/Spinner';
 import { extractApiErrorMessage } from '@/shared/lib/apiError';
 
@@ -22,9 +23,11 @@ import { RolesSection } from '../components/RolesSection';
 import { MembershipsSection } from '../components/MembershipsSection';
 import { DelegationsSection } from '../components/DelegationsSection';
 import { CourtAccessSection } from '../components/CourtAccessSection';
+import { DeleteUserButton } from '../components/DeleteUserButton';
 
 export function AdminUserDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const numericId = id ? Number(id) : null;
   const userQ = useUserAdmin(numericId);
 
@@ -43,9 +46,20 @@ export function AdminUserDetailPage() {
         title={userQ.data ? userQ.data.fullName : 'تفاصيل المستخدم'}
         subtitle={userQ.data ? `@${userQ.data.username}` : undefined}
         actions={
-          <Link to="/admin/users" className="text-sm text-brand-700 hover:underline">
-            ← العودة إلى القائمة
-          </Link>
+          <div className="flex items-center gap-3">
+            {userQ.data && (
+              <DeleteUserButton
+                userId={userQ.data.id}
+                username={userQ.data.username}
+                fullName={userQ.data.fullName}
+                active={userQ.data.active}
+                redirectAfter
+              />
+            )}
+            <Link to="/admin/users" className="text-sm text-brand-700 hover:underline">
+              ← العودة إلى القائمة
+            </Link>
+          </div>
         }
       />
 
@@ -81,6 +95,38 @@ export function AdminUserDetailPage() {
             userId={userQ.data.id}
             courtAccess={userQ.data.courtAccess}
           />
+
+          {/* Customer feedback round-2: closing affordance at the end of the
+              page. Every section already saves immediately on click, so this
+              isn't a "commit pending edits" button — it's a clear "I'm done
+              editing this user" exit point that takes the admin back to the
+              list. */}
+          <Card>
+            <CardBody>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-slate-500">
+                  كل قسم أعلاه يحفظ التغييرات فوراً عند الضغط (إضافة / تعديل /
+                  حذف). انقر «حفظ ورجوع» عندما تنتهي من تعديل هذا المستخدم.
+                </p>
+                <div className="flex flex-shrink-0 items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => navigate('/admin/users')}
+                  >
+                    إلغاء
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => navigate('/admin/users')}
+                    data-testid="admin-user-done"
+                  >
+                    حفظ ورجوع إلى قائمة المستخدمين
+                  </Button>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
         </div>
       )}
     </div>

@@ -31,7 +31,7 @@ services:
 
   # ── Spring Boot Backend (pulled from Docker Hub) ───────────
   backend:
-    image: fadidasus/court-platform-backend:03
+    image: fadidasus/court-platform-backend:06
     restart: unless-stopped
     depends_on:
       db:
@@ -45,6 +45,17 @@ services:
       SLA_BOOTSTRAP_ADMIN_PASSWORD: ${SLA_BOOTSTRAP_ADMIN_PASSWORD:-ChangeMe!2026}
       SLA_ATTACHMENTS_BASE_DIR: /app/attachments-data
       SERVER_PORT: 8080
+      # Customer feedback round-2 — without this, every browser POST to
+      # /api/* returns 403 "Invalid CORS request" because Spring Security's
+      # CORS filter rejects requests carrying an `Origin` header when the
+      # allowed-origins list is empty (which happens to be every browser
+      # POST, even same-origin ones, on iOS Safari + Chromium). Default to
+      # the public hostname; override per-environment via .env.test.
+      SLA_CORS_ALLOWED_ORIGINS: ${SLA_CORS_ALLOWED_ORIGINS:-https://test.kubetrust.com}
+      # Default rate limit is 10 logins/min per IP — fine for production but
+      # painful during demo / e2e runs that hammer the login. Disable here;
+      # override to "true" via .env.test if you want it on.
+      SLA_SECURITY_RATE_LIMIT_ENABLED: ${SLA_SECURITY_RATE_LIMIT_ENABLED:-false}
     volumes:
       - attachments-data:/app/attachments-data
     # Backend is NOT exposed to the host — frontend nginx proxies to it over the compose network
@@ -59,7 +70,7 @@ services:
 
   # ── Nginx + React Frontend (pulled from Docker Hub) ────────
   frontend:
-    image: fadidasus/court-platform-frontend:03
+    image: fadidasus/court-platform-frontend:06
     restart: unless-stopped
     depends_on:
       backend:

@@ -90,6 +90,15 @@ public class UserAccessAdminController {
         return delegationService.patch(id, pid, body, actor);
     }
 
+    /** Customer feedback round-2: hard-remove a delegated permission row. */
+    @DeleteMapping("/delegated-permissions/{pid:\\d+}")
+    public ResponseEntity<Void> removeDelegated(@PathVariable("id") Long id,
+                                                @PathVariable("pid") Long pid) {
+        Long actor = SecurityUtils.currentUserOrThrow().userId();
+        delegationService.delete(id, pid, actor);
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
     // ---------- court access ----------
     @PostMapping("/court-access")
     public ResponseEntity<CourtAccessDto> addCourtAccess(@PathVariable("id") Long id,

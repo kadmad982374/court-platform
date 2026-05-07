@@ -15,12 +15,14 @@ import {
   addMembership,
   addRole,
   createUser,
+  deleteUser,
   getUserAdmin,
   listUsersAdmin,
   patchDelegated,
   patchMembership,
   patchUser,
   removeCourtAccess,
+  removeDelegated,
   removeRole,
   type AdminUsersListParams,
 } from '../api/usersAdmin';
@@ -74,6 +76,18 @@ export function usePatchUser(id: number) {
   });
 }
 
+/**
+ * Customer feedback round-2: soft-delete a user. Invalidates list + detail
+ * so the deactivated row reflects immediately.
+ */
+export function useDeleteUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => deleteUser(id),
+    onSuccess:  (_void, id) => invalidateAdminUsers(qc, id),
+  });
+}
+
 export function useAddRole(id: number) {
   const qc = useQueryClient();
   return useMutation({
@@ -118,6 +132,18 @@ export function usePatchDelegated(id: number, pid: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: Parameters<typeof patchDelegated>[2]) => patchDelegated(id, pid, body),
+    onSuccess:  () => invalidateAdminUsers(qc, id),
+  });
+}
+
+/**
+ * Customer feedback round-2: remove a delegated permission row entirely
+ * (different from toggling `granted` — that just flips the flag).
+ */
+export function useRemoveDelegated(id: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (pid: number) => removeDelegated(id, pid),
     onSuccess:  () => invalidateAdminUsers(qc, id),
   });
 }

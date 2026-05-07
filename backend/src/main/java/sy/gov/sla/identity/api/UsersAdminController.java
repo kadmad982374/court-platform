@@ -53,6 +53,17 @@ public class UsersAdminController {
     }
 
     /**
+     * Customer feedback round-2: delete a user. Soft-delete semantics —
+     * sets {@code active = false}. Returns 204 No Content on success.
+     */
+    @DeleteMapping("/{id:\\d+}")
+    public ResponseEntity<Void> delete(@PathVariable("id") Long id) {
+        Long actor = SecurityUtils.currentUserOrThrow().userId();
+        service.delete(id, actor);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * Paginated user search for administrators.
      * Active when the {@code membershipType} parameter is <em>absent</em>
      * (the Mini-Phase A handler in {@code UsersController} owns the case
