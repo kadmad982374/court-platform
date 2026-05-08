@@ -13,6 +13,7 @@ import sy.gov.sla.access.infrastructure.UserCourtAccessRepository;
 import sy.gov.sla.access.infrastructure.UserDelegatedPermissionRepository;
 import sy.gov.sla.access.infrastructure.UserDepartmentMembershipRepository;
 import sy.gov.sla.identity.application.AuthService;
+import sy.gov.sla.identity.infrastructure.UserRepository;
 import sy.gov.sla.organization.domain.DepartmentType;
 import sy.gov.sla.organization.infrastructure.CourtRepository;
 import sy.gov.sla.organization.infrastructure.DepartmentRepository;
@@ -38,6 +39,7 @@ class ExecutionApiIT extends AbstractIntegrationTest {
     @Autowired UserDelegatedPermissionRepository delegationRepo;
     @Autowired DepartmentRepository deptRepo;
     @Autowired CourtRepository courtRepo;
+    @Autowired UserRepository userRepo;
     @Autowired ObjectMapper om;
 
     Long sectionHeadId, lawyerId, otherBranchHeadId, clerkId;
@@ -48,54 +50,63 @@ class ExecutionApiIT extends AbstractIntegrationTest {
 
     @BeforeEach
     void seed() throws Exception {
-        try {
-            sectionHeadId = authService.createUser("p5head", "P5 Head", "0966411111",
-                    "Password!1", null, null);
-            authService.assignRole(sectionHeadId, RoleType.SECTION_HEAD);
-            lawyerId = authService.createUser("p5law", "P5 Lawyer", "0966422222",
-                    "Password!1", null, null);
-            authService.assignRole(lawyerId, RoleType.STATE_LAWYER);
-            otherBranchHeadId = authService.createUser("p5head2", "Other Head", "0966433333",
-                    "Password!1", null, null);
-            authService.assignRole(otherBranchHeadId, RoleType.SECTION_HEAD);
-            clerkId = authService.createUser("p5clerk", "P5 Clerk", "0966444444",
-                    "Password!1", null, null);
-            authService.assignRole(clerkId, RoleType.ADMIN_CLERK);
+        // JUnit creates a fresh instance per @Test; the Testcontainers Postgres
+        // persists across tests in the same class. So on the 2nd+ test the
+        // createUser calls throw USERNAME_TAKEN and we must fall back to a DB
+        // lookup — otherwise the @NotNull validation on AssignLawyerRequest
+        // rejects the request body with a null lawyerUserId.
+        sectionHeadId = ensureUser("p5head", "P5 Head", "0966411111", RoleType.SECTION_HEAD);
+        lawyerId      = ensureUser("p5law",  "P5 Lawyer", "0966422222", RoleType.STATE_LAWYER);
+        otherBranchHeadId = ensureUser("p5head2", "Other Head", "0966433333", RoleType.SECTION_HEAD);
+        clerkId       = ensureUser("p5clerk", "P5 Clerk", "0966444444", RoleType.ADMIN_CLERK);
 
-            deptId = deptRepo.findByBranchIdAndType(branchId, DepartmentType.FIRST_INSTANCE)
-                    .orElseThrow().getId();
-            courtId = courtRepo.findByBranchIdAndDepartmentType(branchId, DepartmentType.FIRST_INSTANCE)
-                    .get(0).getId();
-            otherDeptId = deptRepo.findByBranchIdAndType(otherBranchId, DepartmentType.FIRST_INSTANCE)
-                    .orElseThrow().getId();
+        deptId = deptRepo.findByBranchIdAndType(branchId, DepartmentType.FIRST_INSTANCE)
+                .orElseThrow().getId();
+        courtId = courtRepo.findByBranchIdAndDepartmentType(branchId, DepartmentType.FIRST_INSTANCE)
+                .get(0).getId();
+        otherDeptId = deptRepo.findByBranchIdAndType(otherBranchId, DepartmentType.FIRST_INSTANCE)
+                .orElseThrow().getId();
 
-            membershipRepo.save(UserDepartmentMembership.builder().userId(sectionHeadId)
-                    .branchId(branchId).departmentId(deptId)
-                    .membershipType(MembershipType.SECTION_HEAD).primary(true).active(true).build());
-            membershipRepo.save(UserDepartmentMembership.builder().userId(lawyerId)
-                    .branchId(branchId).departmentId(deptId)
-                    .membershipType(MembershipType.STATE_LAWYER).primary(true).active(true).build());
-            membershipRepo.save(UserDepartmentMembership.builder().userId(otherBranchHeadId)
-                    .branchId(otherBranchId).departmentId(otherDeptId)
-                    .membershipType(MembershipType.SECTION_HEAD).primary(true).active(true).build());
-            membershipRepo.save(UserDepartmentMembership.builder().userId(clerkId)
-                    .branchId(branchId).departmentId(deptId)
-                    .membershipType(MembershipType.ADMIN_CLERK).primary(true).active(true).build());
-            courtAccessRepo.save(UserCourtAccess.builder().userId(lawyerId)
-                    .courtId(courtId).grantedByUserId(sectionHeadId)
-                    .grantedAt(Instant.now()).active(true).build());
-        } catch (Exception ignored) {
-            deptId = deptRepo.findByBranchIdAndType(branchId, DepartmentType.FIRST_INSTANCE)
-                    .orElseThrow().getId();
-            courtId = courtRepo.findByBranchIdAndDepartmentType(branchId, DepartmentType.FIRST_INSTANCE)
-                    .get(0).getId();
-            otherDeptId = deptRepo.findByBranchIdAndType(otherBranchId, DepartmentType.FIRST_INSTANCE)
-                    .orElseThrow().getId();
-        }
+        ensureMembership(sectionHeadId, branchId, deptId, MembershipType.SECTION_HEAD);
+        ensureMembership(lawyerId, branchId, deptId, MembershipType.STATE_LAWYER);
+        ensureMembership(otherBranchHeadId, otherBranchId, otherDeptId, MembershipType.SECTION_HEAD);
+        ensureMembership(clerkId, branchId, deptId, MembershipType.ADMIN_CLERK);
+        ensureCourtAccess(lawyerId, courtId, sectionHeadId);
+
         headTok = login("p5head");
         lawTok = login("p5law");
         otherHeadTok = login("p5head2");
         clerkTok = login("p5clerk");
+    }
+
+    private Long ensureUser(String username, String fullName, String mobile, RoleType role) {
+        Long id = userRepo.findByUsername(username).map(u -> u.getId()).orElse(null);
+        if (id == null) {
+            id = authService.createUser(username, fullName, mobile, "Password!1", null, null);
+        }
+        authService.assignRole(id, role);
+        return id;
+    }
+
+    private void ensureMembership(Long userId, Long bId, Long dId, MembershipType type) {
+        boolean exists = membershipRepo.findAll().stream().anyMatch(m ->
+                m.getUserId().equals(userId) && m.getDepartmentId().equals(dId)
+                        && m.getMembershipType() == type);
+        if (!exists) {
+            membershipRepo.save(UserDepartmentMembership.builder().userId(userId)
+                    .branchId(bId).departmentId(dId)
+                    .membershipType(type).primary(true).active(true).build());
+        }
+    }
+
+    private void ensureCourtAccess(Long userId, Long cId, Long grantedBy) {
+        boolean exists = courtAccessRepo.findAll().stream().anyMatch(a ->
+                a.getUserId().equals(userId) && a.getCourtId().equals(cId));
+        if (!exists) {
+            courtAccessRepo.save(UserCourtAccess.builder().userId(userId)
+                    .courtId(cId).grantedByUserId(grantedBy)
+                    .grantedAt(Instant.now()).active(true).build());
+        }
     }
 
     private String login(String u) throws Exception {

@@ -178,11 +178,19 @@ class CasesApiIT extends AbstractIntegrationTest {
         // No field for original_registration_date in UpdateBasicDataRequest -> immutable by design.
         // Update opponent name + basis year:
         String body = "{\"opponentName\":\"خالد المُعدَّل\",\"basisYear\":2027}";
+        // Send as UTF-8 bytes explicitly so a non-UTF-8 platform default charset
+        // doesn't silently mojibake the request before it reaches Jackson.
         var resp = mvc.perform(put("/api/v1/cases/" + caseId + "/basic-data")
                 .header("Authorization", "Bearer " + headToken)
-                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .contentType(MediaType.APPLICATION_JSON)
+                .characterEncoding(java.nio.charset.StandardCharsets.UTF_8)
+                .content(body.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
                 .andExpect(status().isOk()).andReturn();
-        JsonNode j = om.readTree(resp.getResponse().getContentAsString());
+        // Read response as UTF-8 explicitly: MockHttpServletResponse defaults to
+        // ISO-8859-1 when no charset is set on the response, which corrupts
+        // Arabic JSON values into "Ø®Ø§ÙØ¯..." mojibake.
+        JsonNode j = om.readTree(
+                resp.getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
         org.assertj.core.api.Assertions.assertThat(j.get("opponentName").asText()).isEqualTo("خالد المُعدَّل");
         org.assertj.core.api.Assertions.assertThat(j.get("basisYear").asInt()).isEqualTo(2027);
         org.assertj.core.api.Assertions.assertThat(j.get("originalRegistrationDate").asText()).isEqualTo("2026-04-01");

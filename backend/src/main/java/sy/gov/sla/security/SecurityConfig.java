@@ -102,6 +102,12 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/refresh-token",
+                                // Logout authenticates with the refresh token in the
+                                // body (same model as refresh). Requiring an access
+                                // token in addition makes the SPA fail when the
+                                // access JWT has already expired but the refresh is
+                                // still revocable.
+                                "/api/v1/auth/logout",
                                 "/api/v1/auth/forgot-password",
                                 "/api/v1/auth/reset-password",
                                 "/v3/api-docs/**",
