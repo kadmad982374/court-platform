@@ -78,8 +78,15 @@ class AttachmentsRemindersNotificationsIT extends AbstractIntegrationTest {
                 .get(0).getId();
         otherDeptId = deptRepo.findByBranchIdAndType(otherBranchId, DepartmentType.FIRST_INSTANCE)
                 .orElseThrow().getId();
+        // Same companion-dept story as ExecutionApiIT: the section head needs
+        // a SECTION_HEAD membership in the EXECUTION dept of the branch so
+        // that EF-scoped checks (write attachments to a promoted file) accept
+        // them. Mirrors V20 dev-seed.
+        Long executionDeptId = deptRepo.findByBranchIdAndType(branchId, DepartmentType.EXECUTION)
+                .orElseThrow().getId();
 
         ensureMembership(sectionHeadId, branchId, deptId, MembershipType.SECTION_HEAD);
+        ensureMembership(sectionHeadId, branchId, executionDeptId, MembershipType.SECTION_HEAD);
         ensureMembership(lawyerId, branchId, deptId, MembershipType.STATE_LAWYER);
         ensureMembership(otherBranchHeadId, otherBranchId, otherDeptId, MembershipType.SECTION_HEAD);
         ensureCourtAccess(lawyerId, courtId, sectionHeadId);

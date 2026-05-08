@@ -66,8 +66,17 @@ class ExecutionApiIT extends AbstractIntegrationTest {
                 .get(0).getId();
         otherDeptId = deptRepo.findByBranchIdAndType(otherBranchId, DepartmentType.FIRST_INSTANCE)
                 .orElseThrow().getId();
+        // Promoting to execution moves the file into the branch's EXECUTION
+        // department. ExecutionScope.from() builds BRANCH_DEPT_PAIRS keys from
+        // SECTION_HEAD memberships, and listFiles() filters on the EF's own
+        // (branchId, departmentId) — so without this companion membership the
+        // section head of FIRST_INSTANCE cannot see the EFs they just promoted.
+        // Mirrors how V20 dev-seed wires real-world branch heads.
+        Long executionDeptId = deptRepo.findByBranchIdAndType(branchId, DepartmentType.EXECUTION)
+                .orElseThrow().getId();
 
         ensureMembership(sectionHeadId, branchId, deptId, MembershipType.SECTION_HEAD);
+        ensureMembership(sectionHeadId, branchId, executionDeptId, MembershipType.SECTION_HEAD);
         ensureMembership(lawyerId, branchId, deptId, MembershipType.STATE_LAWYER);
         ensureMembership(otherBranchHeadId, otherBranchId, otherDeptId, MembershipType.SECTION_HEAD);
         ensureMembership(clerkId, branchId, deptId, MembershipType.ADMIN_CLERK);
