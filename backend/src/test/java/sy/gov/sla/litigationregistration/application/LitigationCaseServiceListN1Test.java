@@ -117,7 +117,7 @@ class LitigationCaseServiceListN1Test {
                 .thenReturn(List.of(stage(101L, 1L), stage(102L, 2L), stage(103L, 3L)));
 
         PageResponse<sy.gov.sla.litigationregistration.api.LitigationCaseDto> result =
-                service.listCases(0, 20, /* actorUserId */ 99L, null, null, null, null);
+                service.listCases(0, 20, /* actorUserId */ 99L, null, null, null, null, null);
 
         // The page is wrapped + each case got its stages attached.
         assertThat(result.content()).hasSize(3);
@@ -134,7 +134,7 @@ class LitigationCaseServiceListN1Test {
         Page<LitigationCase> empty = new PageImpl<>(List.of(), PageRequest.of(0, 20), 0);
         when(caseRepo.findAll(any(Specification.class), any(Pageable.class))).thenReturn(empty);
 
-        service.listCases(0, 20, 99L, null, null, null, null);
+        service.listCases(0, 20, 99L, null, null, null, null, null);
 
         verify(stageRepo, never()).findByLitigationCaseIdIn(any());
         verify(stageRepo, never()).findByLitigationCaseId(anyLong());

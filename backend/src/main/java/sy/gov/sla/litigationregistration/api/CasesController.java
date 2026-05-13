@@ -2,10 +2,13 @@ package sy.gov.sla.litigationregistration.api;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import sy.gov.sla.litigationregistration.application.LitigationCaseService;
 import sy.gov.sla.security.SecurityUtils;
+
+import java.time.LocalDate;
 
 @RestController
 @RequiredArgsConstructor
@@ -32,9 +35,11 @@ public class CasesController {
             @RequestParam(value = "branchId", required = false) Long branchId,
             @RequestParam(value = "departmentId", required = false) Long departmentId,
             @RequestParam(value = "courtId", required = false) Long courtId,
-            @RequestParam(value = "q", required = false) String q) {
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "hearingDate", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hearingDate) {
         Long actor = SecurityUtils.currentUserOrThrow().userId();
-        return service.listCases(page, size, actor, branchId, departmentId, courtId, q);
+        return service.listCases(page, size, actor, branchId, departmentId, courtId, q, hearingDate);
     }
 
     @GetMapping("/{id}")

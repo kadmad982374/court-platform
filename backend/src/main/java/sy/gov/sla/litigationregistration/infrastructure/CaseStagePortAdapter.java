@@ -162,6 +162,7 @@ public class CaseStagePortAdapter implements CaseStagePort {
         lc.setCurrentOwnerUserId(null);                // بانتظار assign-lawyer جديد على مرحلة الاستئناف
         lc.setLifecycleStatus(LifecycleStatus.IN_APPEAL);
         lc.setUpdatedAt(now);
+        bumpInMemoryLastHearingDate(lc, appeal.getFirstHearingDate());
 
         return new NewAppealStageInfo(appeal.getId(), prev.getId(), lc.getId());
     }
@@ -222,6 +223,7 @@ public class CaseStagePortAdapter implements CaseStagePort {
             lc.setLifecycleStatus(LifecycleStatus.ACTIVE);
         }
         lc.setUpdatedAt(now);
+        bumpInMemoryLastHearingDate(lc, concil.getFirstHearingDate());
 
         return new NewConciliationStageInfo(concil.getId(), prev.getId(), lc.getId());
     }
@@ -255,6 +257,21 @@ public class CaseStagePortAdapter implements CaseStagePort {
                 lc.getId(), prev.getId(),
                 prev.getBranchId(), prev.getDepartmentId(),
                 previousOwner);
+    }
+
+    /**
+     * Updates the in-memory {@code lastHearingDate} on the case when the new
+     * stage's first hearing is later (or the case has no value yet). Mirrors
+     * what {@link LitigationCaseRepository#bumpLastHearingDate} would do in a
+     * separate transaction — kept in-memory here so Hibernate's dirty UPDATE
+     * (triggered by the other field changes in the same transaction) writes the
+     * correct value instead of overwriting it with NULL.
+     */
+    private static void bumpInMemoryLastHearingDate(LitigationCase lc, java.time.LocalDate candidate) {
+        if (candidate == null) return;
+        if (lc.getLastHearingDate() == null || lc.getLastHearingDate().isBefore(candidate)) {
+            lc.setLastHearingDate(candidate);
+        }
     }
 }
 

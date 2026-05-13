@@ -173,6 +173,7 @@ export function CasesListPage() {
                     <TH>الجهة العامة</TH>
                     <TH>الصفة</TH>
                     <TH>الخصم</TH>
+                    <TH>تاريخ الجلسة</TH>
                     <TH>الحالة</TH>
                     <TH className="text-end">إجراء</TH>
                   </TR>
@@ -185,6 +186,7 @@ export function CasesListPage() {
                       <TD>{c.publicEntityName}</TD>
                       <TD>{PUBLIC_ENTITY_POSITION_LABEL_AR[c.publicEntityPosition]}</TD>
                       <TD>{c.opponentName}</TD>
+                      <TD>{c.lastHearingDate ?? '—'}</TD>
                       <TD>{LIFECYCLE_LABEL_AR[c.lifecycleStatus]}</TD>
                       <TD className="text-end">
                         <Button
@@ -425,6 +427,17 @@ function FilterForm({
           placeholder="مثال: وزارة العدل"
           value={pending.q ?? ''}
           onChange={(e) => setPending((p) => ({ ...p, q: e.target.value || undefined }))}
+        />
+      </Field>
+
+      <Field label="تاريخ الجلسة">
+        <Input
+          type="date"
+          value={pending.hearingDate ?? ''}
+          onChange={(e) => setPending((p) => ({
+            ...p,
+            hearingDate: e.target.value || undefined,
+          }))}
         />
       </Field>
 

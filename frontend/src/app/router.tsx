@@ -47,6 +47,21 @@ export function AppRouter() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
 
+      {/* DEV-ONLY preview — lets you see AppShell watermark without backend. Remove later. */}
+      <Route path="/preview-shell" element={<AppShell />}>
+        <Route
+          index
+          element={
+            <div className="p-8 text-slate-600">
+              <h1 className="mb-2 text-lg font-semibold text-slate-800">معاينة التصميم</h1>
+              <p className="text-sm">
+                هذه صفحة معاينة مؤقتة — الشعار في الخلفية كعلامة مائية خفيفة.
+              </p>
+            </div>
+          }
+        />
+      </Route>
+
       <Route element={<RequireAuth />}>
         <Route element={<AppShell />}>
           <Route index element={<Navigate to="/dashboard" replace />} />

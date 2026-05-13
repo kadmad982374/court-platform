@@ -1,6 +1,8 @@
 package sy.gov.sla.litigationregistration.application;
 
 import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -27,6 +29,7 @@ import sy.gov.sla.litigationregistration.infrastructure.LitigationCaseRepository
 import sy.gov.sla.organization.application.OrganizationService;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -96,6 +99,8 @@ public class LitigationCaseService {
 
         lc.setCurrentStageId(stage.getId());
         lc.setUpdatedAt(now);
+        // Seed denormalized last_hearing_date from the new stage's first hearing.
+        lc.setLastHearingDate(stage.getFirstHearingDate());
 
         events.publishEvent(new CaseRegisteredEvent(
                 lc.getId(), stage.getId(), lc.getCreatedBranchId(),
@@ -175,19 +180,27 @@ public class LitigationCaseService {
      * @param q             free-text search; matches publicEntityName,
      *                      opponentName, or originalBasisNumber (case-insensitive
      *                      LIKE %q%)
+     * @param hearingDate   restrict to cases that have a hearing on this exact
+     *                      date — across any stage's first_hearing_date OR any
+     *                      hearing_progression_entries.hearing_date.
      */
     @Transactional(readOnly = true)
     public PageResponse<LitigationCaseDto> listCases(int page, int size, Long actorUserId,
                                                      Long branchId, Long departmentId, Long courtId,
-                                                     String q) {
+                                                     String q, LocalDate hearingDate) {
         if (size <= 0) size = 20;
         if (size > 100) size = 100;
         if (page < 0) page = 0;
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        // Customer feedback: sort by hearing date DESC (newest first), NULLs last,
+        // then createdAt DESC as a tiebreaker for cases with no hearings yet.
+        Sort sort = Sort.by(
+                new Sort.Order(Sort.Direction.DESC, "lastHearingDate", Sort.NullHandling.NULLS_LAST),
+                new Sort.Order(Sort.Direction.DESC, "createdAt"));
+        Pageable pageable = PageRequest.of(page, size, sort);
 
         AuthorizationContext actor = authorizationService.loadContext(actorUserId);
         Specification<LitigationCase> spec = buildScopeSpec(actor);
-        Specification<LitigationCase> filter = buildFilterSpec(branchId, departmentId, courtId, q);
+        Specification<LitigationCase> filter = buildFilterSpec(branchId, departmentId, courtId, q, hearingDate);
         if (spec != null && filter != null) {
             spec = spec.and(filter);
         } else if (filter != null) {
@@ -219,9 +232,11 @@ public class LitigationCaseService {
      * the {@code .and()}.
      */
     private Specification<LitigationCase> buildFilterSpec(Long branchId, Long departmentId,
-                                                          Long courtId, String q) {
+                                                          Long courtId, String q,
+                                                          LocalDate hearingDate) {
         boolean hasQ = q != null && !q.isBlank();
-        if (branchId == null && departmentId == null && courtId == null && !hasQ) {
+        if (branchId == null && departmentId == null && courtId == null
+                && !hasQ && hearingDate == null) {
             return null;
         }
         return (root, query, cb) -> {
@@ -242,6 +257,29 @@ public class LitigationCaseService {
                         cb.like(cb.lower(root.get("opponentName")), pattern),
                         cb.like(cb.lower(root.get("originalBasisNumber")), pattern)
                 ));
+            }
+            if (hearingDate != null) {
+                // EXISTS over stages with this firstHearingDate
+                //   OR EXISTS over hearing_progression_entries with this hearing_date
+                //      joined to a stage of this case.
+                Subquery<Long> stageSub = query.subquery(Long.class);
+                Root<sy.gov.sla.litigationregistration.domain.CaseStage> stageRoot = stageSub.from(
+                        sy.gov.sla.litigationregistration.domain.CaseStage.class);
+                stageSub.select(cb.literal(1L)).where(
+                        cb.equal(stageRoot.get("litigationCaseId"), root.get("id")),
+                        cb.equal(stageRoot.get("firstHearingDate"), hearingDate));
+
+                Subquery<Long> entrySub = query.subquery(Long.class);
+                Root<sy.gov.sla.litigationprogression.domain.HearingProgressionEntry> entryRoot =
+                        entrySub.from(sy.gov.sla.litigationprogression.domain.HearingProgressionEntry.class);
+                Root<sy.gov.sla.litigationregistration.domain.CaseStage> stageJoin = entrySub.from(
+                        sy.gov.sla.litigationregistration.domain.CaseStage.class);
+                entrySub.select(cb.literal(1L)).where(
+                        cb.equal(entryRoot.get("caseStageId"), stageJoin.get("id")),
+                        cb.equal(stageJoin.get("litigationCaseId"), root.get("id")),
+                        cb.equal(entryRoot.get("hearingDate"), hearingDate));
+
+                ands.add(cb.or(cb.exists(stageSub), cb.exists(entrySub)));
             }
             return cb.and(ands.toArray(new Predicate[0]));
         };
@@ -459,7 +497,8 @@ public class LitigationCaseService {
                 lc.getCreatedDepartmentId(), lc.getCreatedCourtId(), lc.getChamberName(),
                 lc.getCourtType(),
                 lc.getCurrentStageId(), lc.getCurrentOwnerUserId(), lc.getLifecycleStatus(),
-                lc.getCreatedByUserId(), lc.getCreatedAt(), lc.getUpdatedAt(), stageDtos);
+                lc.getCreatedByUserId(), lc.getCreatedAt(), lc.getUpdatedAt(),
+                lc.getLastHearingDate(), stageDtos);
     }
 
     private CaseStageDto toStageDto(CaseStage s) {

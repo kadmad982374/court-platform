@@ -21,6 +21,8 @@ export interface ListCasesFilters {
   courtId?: number;
   /** free-text search across publicEntityName / opponentName / originalBasisNumber */
   q?: string;
+  /** ISO date (YYYY-MM-DD) — match cases with a hearing on this exact date. */
+  hearingDate?: string;
 }
 
 export async function listCases(
@@ -33,6 +35,9 @@ export async function listCases(
   if (filters.departmentId != null) params.departmentId = filters.departmentId;
   if (filters.courtId      != null) params.courtId      = filters.courtId;
   if (filters.q && filters.q.trim()) params.q = filters.q.trim();
+  if (filters.hearingDate && filters.hearingDate.trim()) {
+    params.hearingDate = filters.hearingDate.trim();
+  }
   const r = await http.get<PageResponse<LitigationCase>>('/cases', { params });
   return r.data;
 }

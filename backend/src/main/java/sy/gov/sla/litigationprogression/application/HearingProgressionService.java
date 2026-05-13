@@ -18,6 +18,7 @@ import sy.gov.sla.litigationprogression.infrastructure.HearingProgressionEntryRe
 import sy.gov.sla.litigationprogression.infrastructure.PostponementReasonRepository;
 import sy.gov.sla.litigationregistration.application.CaseStagePort;
 import sy.gov.sla.litigationregistration.domain.StageStatus;
+import sy.gov.sla.litigationregistration.infrastructure.LitigationCaseRepository;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -34,6 +35,7 @@ public class HearingProgressionService {
     private final CaseStagePort caseStagePort;
     private final AuthorizationService authorizationService;
     private final ApplicationEventPublisher events;
+    private final LitigationCaseRepository litigationCaseRepository;
 
     // ========== Read APIs ==========
 
@@ -125,6 +127,9 @@ public class HearingProgressionService {
                 .build();
         entry = entryRepo.save(entry);
 
+        // Bump denormalized last_hearing_date on the case (no entity load, no @Version touch).
+        litigationCaseRepository.bumpLastHearingDate(info.litigationCaseId(), entry.getHearingDate());
+
         // اجعل المرحلة IN_PROGRESS إن كانت REGISTERED/ASSIGNED.
         caseStagePort.markInProgress(stageId);
 
@@ -171,7 +176,11 @@ public class HearingProgressionService {
                 .entryType(type)
                 .createdAt(Instant.now())
                 .build();
-        return entryRepo.save(entry);
+        HearingProgressionEntry saved = entryRepo.save(entry);
+        // Keep denormalized last_hearing_date in sync. Resolve case via stage.
+        caseStagePort.find(stageId).ifPresent(info ->
+                litigationCaseRepository.bumpLastHearingDate(info.litigationCaseId(), hearingDate));
+        return saved;
     }
 
     private HearingProgressionEntryDto toDto(HearingProgressionEntry e) {

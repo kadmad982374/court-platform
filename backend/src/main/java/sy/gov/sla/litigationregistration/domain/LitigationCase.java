@@ -74,6 +74,15 @@ public class LitigationCase {
     @Column(name = "lifecycle_status", nullable = false, length = 32)
     private LifecycleStatus lifecycleStatus;
 
+    /**
+     * Denormalized: MAX hearing_date across all stages + all hearing_progression_entries.
+     * Powers the default sort on /api/v1/cases (DESC NULLS LAST) and the
+     * hearing-date filter. Maintained by the app layer (see
+     * {@code LitigationCaseRepository.bumpLastHearingDate} and {@code createCase}).
+     */
+    @Column(name = "last_hearing_date")
+    private LocalDate lastHearingDate;
+
     @Column(name = "created_by_user_id", nullable = false)
     private Long createdByUserId;
 

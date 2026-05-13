@@ -312,6 +312,8 @@ export interface LitigationCase {
   createdByUserId: number;
   createdAt: string;
   updatedAt: string;
+  /** ISO date — latest hearing across all stages (denormalized). May be null for very old data. */
+  lastHearingDate: string | null;
   stages: CaseStage[];
 }
 

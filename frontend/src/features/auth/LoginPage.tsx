@@ -54,7 +54,13 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
-      <Card className="w-full max-w-md">
+      <Card className="relative w-full max-w-md">
+        <img
+          src="/logo.png"
+          alt="شعار إدارة قضايا الدولة"
+          draggable={false}
+          className="absolute left-0 top-0 h-24 w-24 select-none object-contain"
+        />
         <CardHeader>
           <CardTitle>تسجيل الدخول</CardTitle>
           <p className="mt-1 text-xs text-slate-500">إدارة قضايا الدولة</p>

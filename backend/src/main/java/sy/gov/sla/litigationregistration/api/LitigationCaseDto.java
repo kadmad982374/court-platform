@@ -27,6 +27,7 @@ public record LitigationCaseDto(
         Long createdByUserId,
         Instant createdAt,
         Instant updatedAt,
+        LocalDate lastHearingDate,
         List<CaseStageDto> stages
 ) {}
 
