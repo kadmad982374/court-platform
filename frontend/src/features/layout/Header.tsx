@@ -24,7 +24,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
   const roleLabel = user?.roles?.[0] ? ROLE_LABEL_AR[user.roles[0]] : null;
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4">
+    <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4">
       <div className="flex items-center gap-3">
         {/* Hamburger — mobile only */}
         {onMenuToggle && (
@@ -36,6 +36,13 @@ export function Header({ onMenuToggle }: HeaderProps) {
             <Menu className="h-5 w-5" />
           </button>
         )}
+        <img
+          src="/logo.png"
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          className="h-14 w-14 select-none object-contain"
+        />
         <div className="text-sm font-semibold text-brand-700">إدارة قضايا الدولة</div>
       </div>
 
