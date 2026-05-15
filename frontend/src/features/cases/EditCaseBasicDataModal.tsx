@@ -200,11 +200,6 @@ export function EditCaseBasicDataModal({ open, onClose, litigationCase, currentS
         <F label="سبب التأجيل الأول" error={errors.firstPostponementReason?.message}>
           <Textarea rows={2} {...register('firstPostponementReason')} />
         </F>
-
-        <div className="sm:col-span-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          ممنوع تعديله هنا: تاريخ القيد الأصلي (D-006)، الإسناد، حالة المرحلة. أي محاولة تعديل
-          غير مسموحة سيرفضها الخادم بـ 403/400 ويُعرض الخطأ.
-        </div>
       </form>
     </Modal>
   );

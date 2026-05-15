@@ -308,13 +308,19 @@ function BroadcastForm({ mode, onSent }: { mode: SenderMode; onSent: () => void 
               </Field>
             )}
 
-            {mode.kind === 'section_head' && !allLawyers && (
-              <Field label="القسم">
-                <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
-                  مقيَّد بقسمك (#{mode.departmentId}).
-                </p>
-              </Field>
-            )}
+            {mode.kind === 'section_head' && !allLawyers && (() => {
+              const dept = (departmentsQs.data ?? []).find((d) => d.id === mode.departmentId);
+              const deptName = dept
+                ? (dept.nameAr || DEPARTMENT_TYPE_LABEL_AR[dept.type])
+                : null;
+              return (
+                <Field label="القسم">
+                  <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                    {deptName ? `مقيَّد بقسمك: ${deptName}.` : 'مقيَّد بقسمك.'}
+                  </p>
+                </Field>
+              );
+            })()}
           </CardBody>
         </Card>
 
