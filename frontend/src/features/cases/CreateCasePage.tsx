@@ -216,9 +216,15 @@ export function CreateCasePage() {
   }, [branchId, departmentTypeForCourts, setValue]);
 
   // Reset department when branch changes.
+  // Skip when the section-head lock is active: the lock effect above just set
+  // departmentId, and running this would overwrite it with 0 — leaving the
+  // form invalid with no visible error (the department picker is hidden in
+  // the locked block) and silently breaking submit on prod for users like
+  // section_fi_dam who have a single SECTION_HEAD membership.
   useEffect(() => {
+    if (lockedSectionHeadMembership) return;
     setValue('departmentId', 0 as unknown as number);
-  }, [branchId, setValue]);
+  }, [branchId, lockedSectionHeadMembership, setValue]);
 
   const createMut = useMutation({
     mutationFn: (body: CreateCaseRequest) => createCase(body),
