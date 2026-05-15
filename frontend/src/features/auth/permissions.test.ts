@@ -51,7 +51,7 @@ function stage(over: Partial<CaseStage> = {}): CaseStage {
     id: 1, litigationCaseId: 10, stageType: 'FIRST_INSTANCE',
     branchId: 1, departmentId: 1, courtId: 1, chamberName: null,
     stageBasisNumber: '1/2026', stageYear: 2026,
-    assignedLawyerUserId: 42, stageStatus: 'ASSIGNED',
+    assignedLawyerUserId: 42, assignedLawyerFullName: null, stageStatus: 'ASSIGNED',
     parentStageId: null, readOnly: false,
     firstHearingDate: null, firstPostponementReason: null,
     startedAt: null, endedAt: null,
