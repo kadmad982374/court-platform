@@ -116,6 +116,7 @@ public class HearingProgressionService {
 
         // Append-only: ننشئ entry جديدة فقط — لا تعديل لما سبق.
         Instant now = Instant.now();
+        String trimmedNotes = req.notes() == null ? null : req.notes().trim();
         HearingProgressionEntry entry = HearingProgressionEntry.builder()
                 .caseStageId(stageId)
                 .hearingDate(req.nextHearingDate())
@@ -124,6 +125,7 @@ public class HearingProgressionService {
                 .enteredByUserId(actorUserId)
                 .entryType(EntryType.ROLLOVER)
                 .createdAt(now)
+                .notes(trimmedNotes != null && !trimmedNotes.isEmpty() ? trimmedNotes : null)
                 .build();
         entry = entryRepo.save(entry);
 
@@ -187,7 +189,8 @@ public class HearingProgressionService {
         return new HearingProgressionEntryDto(
                 e.getId(), e.getCaseStageId(), e.getHearingDate(),
                 e.getPostponementReasonCode(), e.getPostponementReasonLabel(),
-                e.getEnteredByUserId(), e.getEntryType(), e.getCreatedAt());
+                e.getEnteredByUserId(), e.getEntryType(), e.getCreatedAt(),
+                e.getNotes());
     }
 }
 

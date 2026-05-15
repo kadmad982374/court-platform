@@ -48,10 +48,13 @@ interface Props {
 export function lawyerLabel(
   userId: number | null,
   options: AssignableLawyerOption[] | undefined,
+  fallbackFullName?: string | null,
 ): string {
-  if (userId == null) return '— (لا مالك)';
+  if (userId == null) return '— (لا محامي مُسنَد)';
   const hit = options?.find((o) => o.id === userId);
-  return hit ? hit.fullName : `#${userId}`;
+  if (hit) return hit.fullName;
+  if (fallbackFullName) return fallbackFullName;
+  return `#${userId}`;
 }
 
 export function AssignLawyerSection({ litigationCase }: Props) {
@@ -84,8 +87,12 @@ export function AssignLawyerSection({ litigationCase }: Props) {
   });
 
   const ownerLabel = useMemo(
-    () => lawyerLabel(litigationCase.currentOwnerUserId, lawyersQ.data),
-    [litigationCase.currentOwnerUserId, lawyersQ.data],
+    () => lawyerLabel(
+      litigationCase.currentOwnerUserId,
+      lawyersQ.data,
+      litigationCase.currentOwnerFullName,
+    ),
+    [litigationCase.currentOwnerUserId, litigationCase.currentOwnerFullName, lawyersQ.data],
   );
 
   if (!allowed) return null;
@@ -108,7 +115,7 @@ export function AssignLawyerSection({ litigationCase }: Props) {
         </p>
 
         <dl className="text-sm">
-          <dt className="text-xs text-slate-500">المالك الحالي</dt>
+          <dt className="text-xs text-slate-500">المحامي المُسنَد</dt>
           <dd className="mt-0.5 text-slate-800" data-testid="current-owner-label">
             {ownerLabel}
           </dd>

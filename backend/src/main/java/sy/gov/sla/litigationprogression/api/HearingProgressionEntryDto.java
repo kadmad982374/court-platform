@@ -13,6 +13,7 @@ public record HearingProgressionEntryDto(
         String postponementReasonLabel,
         Long enteredByUserId,
         EntryType entryType,
-        Instant createdAt
+        Instant createdAt,
+        String notes
 ) {}
 

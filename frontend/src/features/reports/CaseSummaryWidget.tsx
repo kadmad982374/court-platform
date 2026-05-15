@@ -145,13 +145,13 @@ export function CaseSummaryWidget({ compact = false }: { compact?: boolean }) {
 
             <div className="space-y-2 text-sm">
               <p className="text-slate-700">
-                <span className="text-slate-500">إجمالي الدعاوى:</span>{' '}
+                <span className="text-slate-500">إجمالي الدعاوى القائمة:</span>{' '}
                 <strong>{total.toLocaleString('ar-SY')}</strong>
               </p>
 
               <div>
                 <p className="mb-1 text-xs font-medium text-slate-600">
-                  مجاميع المبالغ المحكوم بها (Q-F)
+                  مجموع المبالغ المحكوم بها
                 </p>
                 {q.data.adjudgedTotalsByCurrency.length === 0 ? (
                   <p className="text-xs text-slate-400">لا توجد مبالغ مسجَّلة.</p>
@@ -166,10 +166,6 @@ export function CaseSummaryWidget({ compact = false }: { compact?: boolean }) {
                   </ul>
                 )}
               </div>
-
-              <p className="pt-2 text-[10px] text-slate-400">
-                المبلغ المحكوم به فقط (Q-F) — مبلغ الصلح والمصاريف غير مشمولة.
-              </p>
             </div>
           </div>
         )}

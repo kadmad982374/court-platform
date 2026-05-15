@@ -27,6 +27,7 @@ import { hasRole } from '@/features/auth/permissions';
 import {
   DECISION_TYPE_LABEL_AR,
   DEPARTMENT_TYPE_LABEL_AR,
+  STAGE_TYPE_LABEL_AR,
   type CurrentUser,
   type DecisionType,
   type Department,
@@ -171,8 +172,8 @@ export function ResolvedRegisterPage() {
                 <TBody>
                   {q.data.map((e) => (
                     <TR key={`${e.caseId}-${e.stageId}-${e.decisionId}`}>
-                      <TD>#{e.caseId}</TD>
-                      <TD>#{e.stageId}</TD>
+                      <TD>{e.caseBasisNumber}/{e.caseBasisYear}</TD>
+                      <TD>{STAGE_TYPE_LABEL_AR[e.stageType] ?? e.stageType}</TD>
                       <TD>{e.stageBasisNumber}/{e.stageYear}</TD>
                       <TD>{e.publicEntityName}</TD>
                       <TD>{e.opponentName}</TD>

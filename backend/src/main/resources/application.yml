@@ -47,8 +47,8 @@ sla:
     central-supervisor:
       enabled: ${SLA_BOOTSTRAP_ADMIN_ENABLED:true}
       username: admin
-      full-name: "المسؤول المركزي"
-      mobile-number: "0000000000"
+      full-name: "رئيس ادارة قضايا الدولة"
+      mobile-number: "0940558967"
       initial-password: ${SLA_BOOTSTRAP_ADMIN_PASSWORD:ChangeMe!2026}
   # P8b-01: re-applies V20–V23 dev seeds at boot, after admin is created.
   # SECURE-BY-DEFAULT: disabled unless explicitly turned on. Demo deployments

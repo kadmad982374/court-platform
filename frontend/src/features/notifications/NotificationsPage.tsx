@@ -43,10 +43,7 @@ export function NotificationsPage() {
 
   return (
     <>
-      <PageHeader
-        title="الإشعارات"
-        subtitle="إشعارات داخلية بأحداث الدعاوى. الإنشاء يدويًا غير ممكن (D-038)."
-      />
+      <PageHeader title="الإشعارات" />
 
       {actionError && (
         <div role="alert" className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">

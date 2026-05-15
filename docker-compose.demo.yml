@@ -47,6 +47,7 @@ services:
       # E2E sweep-friendly: 10/min/IP login cap blocks the 23-login customer-feedback
       # validation spec. Override via .env.demo (commit untouched).
       SLA_SECURITY_RATE_LIMIT_ENABLED: "${SLA_SECURITY_RATE_LIMIT_ENABLED:-true}"
+      SLA_CORS_ALLOWED_ORIGINS: ${SLA_CORS_ALLOWED_ORIGINS:-}
       SLA_ATTACHMENTS_BASE_DIR: /app/attachments-data
       SERVER_PORT: 8080
     volumes:

@@ -26,7 +26,10 @@ public class ResolvedRegisterQueryDao {
     private static final String BASE_SQL = """
         SELECT
             lc.id                            AS case_id,
+            lc.original_basis_number         AS case_basis_number,
+            lc.basis_year                    AS case_basis_year,
             cs.id                            AS stage_id,
+            cs.stage_type                    AS stage_type,
             cd.id                            AS decision_id,
             lc.public_entity_name            AS public_entity_name,
             lc.public_entity_position        AS public_entity_position,
@@ -117,7 +120,10 @@ public class ResolvedRegisterQueryDao {
 
         return jdbc.query(sql.toString(), p, (rs, i) -> new ResolvedRegisterEntryDto(
                 rs.getLong("case_id"),
+                rs.getString("case_basis_number"),
+                (Integer) rs.getObject("case_basis_year"),
                 rs.getLong("stage_id"),
+                rs.getString("stage_type"),
                 rs.getLong("decision_id"),
                 rs.getString("public_entity_name"),
                 rs.getString("public_entity_position"),

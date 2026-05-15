@@ -283,6 +283,7 @@ export interface CaseStage {
   stageBasisNumber: string;
   stageYear: number;
   assignedLawyerUserId: number | null;
+  assignedLawyerFullName: string | null;
   stageStatus: StageStatus;
   parentStageId: number | null;
   readOnly: boolean;
@@ -308,6 +309,7 @@ export interface LitigationCase {
   courtType: CourtType;
   currentStageId: number | null;
   currentOwnerUserId: number | null;
+  currentOwnerFullName: string | null;
   lifecycleStatus: LifecycleStatus;
   createdByUserId: number;
   createdAt: string;
@@ -362,11 +364,13 @@ export interface HearingProgressionEntry {
   enteredByUserId: number | null;
   entryType: EntryType;
   createdAt: string;
+  notes: string | null;
 }
 
 export interface RolloverHearingRequest {
   nextHearingDate: string;          // ISO yyyy-MM-dd
   postponementReasonCode: string;
+  notes?: string | null;
 }
 
 export type DecisionType = 'FOR_ENTITY' | 'AGAINST_ENTITY' | 'SETTLEMENT' | 'NON_FINAL';
@@ -405,7 +409,10 @@ export interface FinalizeRequest {
 
 export interface ResolvedRegisterEntry {
   caseId: number;
+  caseBasisNumber: string;
+  caseBasisYear: number;
   stageId: number;
+  stageType: StageType;
   decisionId: number;
   publicEntityName: string;
   publicEntityPosition: string;

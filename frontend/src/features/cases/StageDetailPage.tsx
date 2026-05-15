@@ -22,11 +22,9 @@ import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/Input';
 import { Select, Textarea } from '@/shared/ui/FormFields';
 import { Modal } from '@/shared/ui/Modal';
-import { Table, TBody, TD, TH, THead, TR } from '@/shared/ui/Table';
 import { extractApiErrorMessage } from '@/shared/lib/apiError';
 import {
   DECISION_TYPE_LABEL_AR,
-  ENTRY_TYPE_LABEL_AR,
   STAGE_STATUS_LABEL_AR,
   STAGE_TYPE_LABEL_AR,
   type DecisionType,
@@ -65,6 +63,8 @@ export function StageDetailPage() {
     onSuccess: () => {
       setActionError(null); setRolloverOpen(false);
       void qc.invalidateQueries({ queryKey: ['stages', stageId] });
+      void qc.invalidateQueries({ queryKey: ['stages', stageId, 'progression'] });
+      void qc.invalidateQueries({ queryKey: ['stages', stageId, 'history'] });
     },
     onError: (e) => setActionError(extractApiErrorMessage(e)),
   });
@@ -74,6 +74,8 @@ export function StageDetailPage() {
     onSuccess: () => {
       setActionError(null); setFinalizeOpen(false);
       void qc.invalidateQueries({ queryKey: ['stages', stageId] });
+      void qc.invalidateQueries({ queryKey: ['stages', stageId, 'progression'] });
+      void qc.invalidateQueries({ queryKey: ['stages', stageId, 'history'] });
     },
     onError: (e) => setActionError(extractApiErrorMessage(e)),
   });
@@ -87,12 +89,8 @@ export function StageDetailPage() {
   return (
     <>
       <PageHeader
-        title={`المرحلة #${stageId}`}
-        subtitle={
-          stage
-            ? `${STAGE_TYPE_LABEL_AR[stage.stageType]} — ${STAGE_STATUS_LABEL_AR[stage.stageStatus]}`
-            : undefined
-        }
+        title={stage ? `المرحلة — ${STAGE_TYPE_LABEL_AR[stage.stageType]}` : 'المرحلة'}
+        subtitle={stage ? STAGE_STATUS_LABEL_AR[stage.stageStatus] : undefined}
       />
 
       {actionError && (
@@ -127,12 +125,9 @@ export function StageDetailPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>أفعال المرحلة</CardTitle>
+            <CardTitle>مجريات الجلسة</CardTitle>
           </CardHeader>
           <CardBody className="space-y-3">
-            <p className="text-xs text-slate-500">
-              تظهر فقط للمحامي المُسنَد للمرحلة (D-024). يمنع الخادم أي محاولة من غيره.
-            </p>
             <div className="flex flex-wrap gap-2">
               {showRollover && (
                 <Button onClick={() => setRolloverOpen(true)} variant="secondary">
@@ -148,48 +143,33 @@ export function StageDetailPage() {
                 <p className="text-xs text-slate-400">لا توجد أفعال متاحة لك على هذه المرحلة.</p>
               )}
             </div>
+
+            <div className="border-t border-slate-100 pt-3">
+              <h4 className="mb-2 text-xs font-medium text-slate-600">الملاحظات</h4>
+              {histQ.isLoading && <Spinner className="text-brand-600" />}
+              {histQ.data && histQ.data.filter((e) => e.notes && e.notes.trim()).length === 0 && (
+                <p className="text-xs text-slate-400">لا توجد ملاحظات.</p>
+              )}
+              {histQ.data && (
+                <ul className="space-y-2">
+                  {histQ.data
+                    .filter((e) => e.notes && e.notes.trim())
+                    .slice()
+                    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+                    .map((e) => (
+                      <li key={e.id} className="rounded border border-slate-100 bg-slate-50 px-2 py-1.5">
+                        <p className="text-xs text-slate-500">
+                          {e.hearingDate} — {e.postponementReasonLabel ?? '—'}
+                        </p>
+                        <p className="mt-0.5 whitespace-pre-wrap text-sm text-slate-800">{e.notes}</p>
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </div>
           </CardBody>
         </Card>
       </div>
-
-      <Card className="mt-4">
-        <CardHeader>
-          <CardTitle>سجل الجلسات (append-only — D-022)</CardTitle>
-        </CardHeader>
-        <CardBody>
-          {histQ.isLoading && <Spinner className="text-brand-600" />}
-          {histQ.isError && (
-            <p className="text-sm text-red-600">
-              {extractApiErrorMessage(histQ.error, 'تعذّر تحميل السجل.')}
-            </p>
-          )}
-          {histQ.data && histQ.data.length === 0 && (
-            <p className="text-sm text-slate-500">لا توجد قيود.</p>
-          )}
-          {histQ.data && histQ.data.length > 0 && (
-            <Table>
-              <THead>
-                <TR>
-                  <TH>تاريخ الجلسة</TH>
-                  <TH>سبب التأجيل</TH>
-                  <TH>نوع القيد</TH>
-                  <TH>أُدخل بتاريخ</TH>
-                </TR>
-              </THead>
-              <TBody>
-                {histQ.data.map((e) => (
-                  <TR key={e.id}>
-                    <TD>{e.hearingDate}</TD>
-                    <TD>{e.postponementReasonLabel ?? e.postponementReasonCode ?? '—'}</TD>
-                    <TD>{ENTRY_TYPE_LABEL_AR[e.entryType]}</TD>
-                    <TD className="text-xs text-slate-500">{e.createdAt}</TD>
-                  </TR>
-                ))}
-              </TBody>
-            </Table>
-          )}
-        </CardBody>
-      </Card>
 
       <RolloverModal
         open={rolloverOpen}
@@ -228,6 +208,7 @@ function Field({ k, v }: { k: string; v: string }) {
 const rolloverSchema = z.object({
   nextHearingDate:        z.string().min(1, 'مطلوب'),
   postponementReasonCode: z.string().min(1, 'مطلوب'),
+  notes:                  z.string().max(2000).optional(),
 });
 type RolloverForm = z.infer<typeof rolloverSchema>;
 
@@ -262,7 +243,15 @@ function RolloverModal({
         </>
       }
     >
-      <form id="rollover-form" className="space-y-3" onSubmit={handleSubmit(onSubmit)}>
+      <form
+        id="rollover-form"
+        className="space-y-3"
+        onSubmit={handleSubmit((v) => onSubmit({
+          nextHearingDate: v.nextHearingDate,
+          postponementReasonCode: v.postponementReasonCode,
+          notes: v.notes && v.notes.trim() ? v.notes.trim() : null,
+        }))}
+      >
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">تاريخ الجلسة التالية</label>
           <Input type="date" {...register('nextHearingDate')} />
@@ -288,6 +277,11 @@ function RolloverModal({
           {errors.postponementReasonCode && (
             <p className="mt-1 text-xs text-red-600">{errors.postponementReasonCode.message}</p>
           )}
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-700">ملاحظة (اختياري)</label>
+          <Textarea rows={3} {...register('notes')} />
+          {errors.notes && <p className="mt-1 text-xs text-red-600">{errors.notes.message}</p>}
         </div>
       </form>
     </Modal>

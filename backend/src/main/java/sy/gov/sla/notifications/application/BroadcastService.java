@@ -47,6 +47,7 @@ import java.util.stream.Collectors;
 public class BroadcastService {
 
     private static final String NOTIFICATION_TYPE = "BROADCAST_MESSAGE";
+    private static final String SENT_NOTIFICATION_TYPE = "BROADCAST_SENT";
 
     private final NotificationService notificationService;
     private final AuthorizationService authorizationService;
@@ -254,6 +255,16 @@ public class BroadcastService {
                     req.title().trim(), req.body().trim(),
                     null, null);
         }
+
+        // Sent-items: also drop a copy of the broadcast in the sender's own inbox
+        // so they can review what they've sent (customer request).
+        String senderBody = req.body().trim()
+                + "\n\nتم الإرسال إلى " + recipientIds.size() + " مستلمًا.";
+        notificationService.createInternal(
+                actorUserId, SENT_NOTIFICATION_TYPE,
+                req.title().trim(), senderBody,
+                null, null);
+
         UserActionLog.action("broadcast \"{}\" -> {} recipients (scope={})",
                 req.title(), recipientIds.size(), req.scope());
 

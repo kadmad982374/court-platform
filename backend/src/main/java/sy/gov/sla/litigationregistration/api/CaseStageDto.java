@@ -17,6 +17,7 @@ public record CaseStageDto(
         String stageBasisNumber,
         int stageYear,
         Long assignedLawyerUserId,
+        String assignedLawyerFullName,
         StageStatus stageStatus,
         Long parentStageId,
         boolean readOnly,

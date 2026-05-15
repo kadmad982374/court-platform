@@ -26,6 +26,7 @@ import sy.gov.sla.litigationregistration.api.*;
 import sy.gov.sla.litigationregistration.domain.*;
 import sy.gov.sla.litigationregistration.infrastructure.CaseStageRepository;
 import sy.gov.sla.litigationregistration.infrastructure.LitigationCaseRepository;
+import sy.gov.sla.identity.infrastructure.UserRepository;
 import sy.gov.sla.organization.application.OrganizationService;
 
 import java.time.Instant;
@@ -46,6 +47,7 @@ public class LitigationCaseService {
     private final OrganizationService organizationService;
     private final AuthorizationService authorizationService;
     private final ApplicationEventPublisher events;
+    private final UserRepository userRepo;
 
     // ========== Create ==========
 
@@ -490,13 +492,15 @@ public class LitigationCaseService {
 
     private LitigationCaseDto toDto(LitigationCase lc, List<CaseStage> stages) {
         var stageDtos = stages.stream().map(this::toStageDto).toList();
+        String ownerFullName = resolveFullName(lc.getCurrentOwnerUserId());
         return new LitigationCaseDto(
                 lc.getId(), lc.getPublicEntityName(), lc.getPublicEntityPosition(),
                 lc.getOpponentName(), lc.getOriginalBasisNumber(), lc.getBasisYear(),
                 lc.getOriginalRegistrationDate(), lc.getCreatedBranchId(),
                 lc.getCreatedDepartmentId(), lc.getCreatedCourtId(), lc.getChamberName(),
                 lc.getCourtType(),
-                lc.getCurrentStageId(), lc.getCurrentOwnerUserId(), lc.getLifecycleStatus(),
+                lc.getCurrentStageId(), lc.getCurrentOwnerUserId(), ownerFullName,
+                lc.getLifecycleStatus(),
                 lc.getCreatedByUserId(), lc.getCreatedAt(), lc.getUpdatedAt(),
                 lc.getLastHearingDate(), stageDtos);
     }
@@ -504,10 +508,16 @@ public class LitigationCaseService {
     private CaseStageDto toStageDto(CaseStage s) {
         return new CaseStageDto(s.getId(), s.getLitigationCaseId(), s.getStageType(),
                 s.getBranchId(), s.getDepartmentId(), s.getCourtId(), s.getChamberName(),
-                s.getStageBasisNumber(), s.getStageYear(), s.getAssignedLawyerUserId(),
+                s.getStageBasisNumber(), s.getStageYear(),
+                s.getAssignedLawyerUserId(), resolveFullName(s.getAssignedLawyerUserId()),
                 s.getStageStatus(), s.getParentStageId(), s.isReadOnly(),
                 s.getFirstHearingDate(), s.getFirstPostponementReason(),
                 s.getStartedAt(), s.getEndedAt());
+    }
+
+    private String resolveFullName(Long userId) {
+        if (userId == null) return null;
+        return userRepo.findById(userId).map(u -> u.getFullName()).orElse(null);
     }
 }
 

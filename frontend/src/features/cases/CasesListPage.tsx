@@ -116,7 +116,6 @@ export function CasesListPage() {
     <>
       <PageHeader
         title="الدعاوى"
-        subtitle="القائمة محكومة بنطاق صلاحياتك (D-021): ترى ما يُعيده الخادم فقط."
         actions={
           showCreate ? (
             <Button onClick={() => navigate('/cases/new')}>+ إنشاء دعوى</Button>

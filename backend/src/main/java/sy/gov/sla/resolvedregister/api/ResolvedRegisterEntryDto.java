@@ -9,7 +9,10 @@ import java.time.LocalDate;
  */
 public record ResolvedRegisterEntryDto(
         Long caseId,
+        String caseBasisNumber,
+        Integer caseBasisYear,
         Long stageId,
+        String stageType,
         Long decisionId,
         String publicEntityName,
         String publicEntityPosition,

@@ -1,6 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -11,6 +11,7 @@ import {
   promoteToConciliation,
   promoteToExecution,
 } from './api';
+import { getStageHistory } from './stagesApi';
 import { EditCaseBasicDataModal } from './EditCaseBasicDataModal';
 import { CorrectFinalizedCaseModal } from './CorrectFinalizedCaseModal';
 import { AssignLawyerSection, lawyerLabel } from './AssignLawyerSection';
@@ -36,10 +37,11 @@ import {
   listAssignableLawyers,
 } from '@/shared/api/users';
 import {
+  ENTRY_TYPE_LABEL_AR,
   LIFECYCLE_LABEL_AR,
   PUBLIC_ENTITY_POSITION_LABEL_AR,
-  STAGE_STATUS_LABEL_AR,
   STAGE_TYPE_LABEL_AR,
+  type HearingProgressionEntry,
   type PromoteToExecutionRequest,
 } from '@/shared/types/domain';
 
@@ -60,6 +62,23 @@ export function CaseDetailPage() {
     queryFn: () => listCaseStages(caseId),
     enabled: Number.isFinite(caseId),
   });
+
+  // Fetch hearing history per stage, aggregated into a single case-level log.
+  const hearingsQueries = useQueries({
+    queries: (stagesQ.data ?? []).map((s) => ({
+      queryKey: ['stages', s.id, 'history'] as const,
+      queryFn: () => getStageHistory(s.id),
+      staleTime: 30_000,
+    })),
+  });
+  const hearingsLoading = hearingsQueries.some((q) => q.isLoading);
+  const hearingsError = hearingsQueries.find((q) => q.isError)?.error;
+  const allHearings = useMemo(() => {
+    const merged: HearingProgressionEntry[] = [];
+    for (const q of hearingsQueries) if (q.data) merged.push(...q.data);
+    merged.sort((a, b) => b.hearingDate.localeCompare(a.hearingDate));
+    return merged;
+  }, [hearingsQueries]);
 
   const [actionError, setActionError] = useState<string | null>(null);
   const [promoteExecOpen, setPromoteExecOpen] = useState(false);
@@ -143,7 +162,7 @@ export function CaseDetailPage() {
 
   return (
     <>
-      <PageHeader title={`الدعوى رقم ${caseId}`} subtitle="البيانات الأساسية والمراحل." />
+      <PageHeader title={`الدعوى رقم ${caseId}`} subtitle="البيانات الأساسية وسجل الجلسات." />
 
       {actionError && (
         <div role="alert" className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -171,14 +190,18 @@ export function CaseDetailPage() {
                 <Field k="الجهة العامة" v={caseQ.data.publicEntityName} />
                 <Field k="الصفة"  v={PUBLIC_ENTITY_POSITION_LABEL_AR[caseQ.data.publicEntityPosition]} />
                 <Field k="الخصم" v={caseQ.data.opponentName} />
-                <Field k="حالة دورة الحياة" v={LIFECYCLE_LABEL_AR[caseQ.data.lifecycleStatus]} />
+                <Field k="حالة الدعوة" v={LIFECYCLE_LABEL_AR[caseQ.data.lifecycleStatus]} />
                 <Field
                   k="المرحلة الحالية"
-                  v={caseQ.data.currentStageId ? `#${caseQ.data.currentStageId}` : '—'}
+                  v={currentStage ? STAGE_TYPE_LABEL_AR[currentStage.stageType] : '—'}
                 />
                 <Field
-                  k="المالك الحالي"
-                  v={lawyerLabel(caseQ.data.currentOwnerUserId, lawyersQ.data)}
+                  k="المحامي المُسنَد"
+                  v={lawyerLabel(
+                    caseQ.data.currentOwnerUserId,
+                    lawyersQ.data,
+                    caseQ.data.currentOwnerFullName,
+                  )}
                 />
               </dl>
             )}
@@ -251,52 +274,59 @@ export function CaseDetailPage() {
 
       <Card className="mt-4">
         <CardHeader>
-          <CardTitle>المراحل</CardTitle>
+          <CardTitle>سجل الجلسات</CardTitle>
         </CardHeader>
         <CardBody>
-          {stagesQ.isLoading && <Spinner className="text-brand-600" />}
+          {(stagesQ.isLoading || hearingsLoading) && <Spinner className="text-brand-600" />}
           {stagesQ.isError && (
             <p className="text-sm text-red-600">
               {extractApiErrorMessage(stagesQ.error, 'تعذّر تحميل المراحل.')}
             </p>
           )}
-          {stagesQ.data && stagesQ.data.length === 0 && (
-            <p className="text-sm text-slate-500">لا توجد مراحل.</p>
+          {hearingsError && !stagesQ.isError && (
+            <p className="text-sm text-red-600">
+              {extractApiErrorMessage(hearingsError, 'تعذّر تحميل سجل الجلسات.')}
+            </p>
           )}
-          {stagesQ.data && stagesQ.data.length > 0 && (
-            <Table>
-              <THead>
-                <TR>
-                  <TH>المعرّف</TH>
-                  <TH>النوع</TH>
-                  <TH>رقم الأساس</TH>
-                  <TH>السنة</TH>
-                  <TH>المحامي المُسنَد</TH>
-                  <TH>الحالة</TH>
-                  <TH>للقراءة فقط؟</TH>
-                  <TH className="text-end">إجراء</TH>
-                </TR>
-              </THead>
-              <TBody>
-                {stagesQ.data.map((s) => (
-                  <TR key={s.id}>
-                    <TD>{s.id}</TD>
-                    <TD>{STAGE_TYPE_LABEL_AR[s.stageType]}</TD>
-                    <TD>{s.stageBasisNumber}</TD>
-                    <TD>{s.stageYear}</TD>
-                    <TD>{lawyerLabel(s.assignedLawyerUserId, lawyersQ.data)}</TD>
-                    <TD>{STAGE_STATUS_LABEL_AR[s.stageStatus]}</TD>
-                    <TD>{s.readOnly ? 'نعم' : 'لا'}</TD>
-                    <TD className="text-end">
-                      <Link to={`/stages/${s.id}`}>
-                        <Button size="sm" variant="secondary">فتح المرحلة</Button>
-                      </Link>
-                    </TD>
+          {!hearingsLoading && !hearingsError && allHearings.length === 0 && (
+            <p className="text-sm text-slate-500">لا توجد جلسات.</p>
+          )}
+          {allHearings.length > 0 && (() => {
+            const stageById = new Map((stagesQ.data ?? []).map((s) => [s.id, s]));
+            return (
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>تاريخ الجلسة</TH>
+                    <TH>المرحلة</TH>
+                    <TH>سبب التأجيل</TH>
+                    <TH>نوع القيد</TH>
+                    <TH>أُدخل بتاريخ</TH>
+                    <TH className="text-end">إجراء</TH>
                   </TR>
-                ))}
-              </TBody>
-            </Table>
-          )}
+                </THead>
+                <TBody>
+                  {allHearings.map((e) => {
+                    const stg = stageById.get(e.caseStageId);
+                    return (
+                      <TR key={e.id}>
+                        <TD>{e.hearingDate}</TD>
+                        <TD>{stg ? STAGE_TYPE_LABEL_AR[stg.stageType] : `#${e.caseStageId}`}</TD>
+                        <TD>{e.postponementReasonLabel ?? e.postponementReasonCode ?? '—'}</TD>
+                        <TD>{ENTRY_TYPE_LABEL_AR[e.entryType]}</TD>
+                        <TD className="text-xs text-slate-500">{e.createdAt}</TD>
+                        <TD className="text-end">
+                          <Link to={`/stages/${e.caseStageId}`}>
+                            <Button size="sm" variant="secondary">فتح الجلسة</Button>
+                          </Link>
+                        </TD>
+                      </TR>
+                    );
+                  })}
+                </TBody>
+              </Table>
+            );
+          })()}
         </CardBody>
       </Card>
 

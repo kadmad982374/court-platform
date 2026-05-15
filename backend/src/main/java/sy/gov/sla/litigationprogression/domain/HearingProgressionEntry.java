@@ -45,5 +45,9 @@ public class HearingProgressionEntry {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
+    /** Optional free-text note attached at the time of rollover / finalization. */
+    @Column(name = "notes", length = 2000, updatable = false)
+    private String notes;
 }
 

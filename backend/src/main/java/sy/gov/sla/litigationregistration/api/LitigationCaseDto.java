@@ -23,6 +23,7 @@ public record LitigationCaseDto(
         CourtType courtType,
         Long currentStageId,
         Long currentOwnerUserId,
+        String currentOwnerFullName,
         LifecycleStatus lifecycleStatus,
         Long createdByUserId,
         Instant createdAt,

@@ -70,7 +70,6 @@ const schema = z.object({
     'URGENT', 'MARITIME', 'BANKING', 'LABOR',
     'GENERAL', 'INSURANCE', 'CUSTOMS', 'ADMINISTRATIVE',
   ]),
-  stageBasisNumber:        z.string().trim().min(1, 'مطلوب').max(64),
   firstHearingDate:        z.string().min(1, 'مطلوب'),       // yyyy-MM-dd
   firstPostponementReason: z.string().trim().min(1, 'مطلوب').max(200),
 });
@@ -269,7 +268,7 @@ export function CreateCasePage() {
       chamberName: v.chamberName ? v.chamberName : null,
       courtType: v.courtType as CourtType,
       stageType: v.stageType,
-      stageBasisNumber: v.stageBasisNumber,
+      stageBasisNumber: v.originalBasisNumber,
       stageYear: computedYear,
       firstHearingDate: v.firstHearingDate,
       firstPostponementReason: v.firstPostponementReason,
@@ -281,7 +280,7 @@ export function CreateCasePage() {
     <>
       <PageHeader
         title="إنشاء دعوى"
-        subtitle="القيد التأسيسي للدعوى. الفرع/القسم محصور بعضوياتك الفعّالة (الخادم يُلزم القاعدة)."
+        subtitle="القيد التأسيسي للدعوى. الفرع/القسم محصور بعضوياتك الفعّالة."
       />
 
       {serverError && (
@@ -425,17 +424,11 @@ export function CreateCasePage() {
         <Card>
           <CardHeader><CardTitle>أساس الدعوى + الجلسة الأولى</CardTitle></CardHeader>
           <CardBody className="space-y-3">
-            <Field label="رقم أساس الدعوى" error={errors.stageBasisNumber?.message}>
-              <Input {...register('stageBasisNumber')} />
-            </Field>
             <Field label="تاريخ الجلسة الأولى" error={errors.firstHearingDate?.message}>
               <Input type="date" {...register('firstHearingDate')} />
             </Field>
             <Field label="سبب التأجيل الأول" error={errors.firstPostponementReason?.message}>
               <Textarea rows={2} {...register('firstPostponementReason')} />
-              <p className="mt-1 text-xs text-slate-500">
-                نص حر في هذه المرحلة (D-020). القائمة المعيارية متاحة لاحقًا في الترحيل/الفصل فقط.
-              </p>
             </Field>
           </CardBody>
         </Card>
