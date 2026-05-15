@@ -120,10 +120,7 @@ export function ResolvedRegisterPage() {
 
   return (
     <>
-      <PageHeader
-        title="سجل الفصل"
-        subtitle="عرض للقراءة فقط (D-025). النتائج محكومة بنطاق صلاحياتك."
-      />
+      <PageHeader title="سجل الفصل" />
 
       <Card className="mb-4">
         <CardHeader><CardTitle>الفلاتر</CardTitle></CardHeader>

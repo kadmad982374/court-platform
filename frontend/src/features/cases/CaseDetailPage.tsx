@@ -11,7 +11,7 @@ import {
   promoteToConciliation,
   promoteToExecution,
 } from './api';
-import { getStageHistory } from './stagesApi';
+import { getPostponementReasons, getStageHistory, rolloverHearing } from './stagesApi';
 import { EditCaseBasicDataModal } from './EditCaseBasicDataModal';
 import { CorrectFinalizedCaseModal } from './CorrectFinalizedCaseModal';
 import { AssignLawyerSection, lawyerLabel } from './AssignLawyerSection';
@@ -23,6 +23,7 @@ import {
   canPromoteToAppeal,
   canPromoteToConciliation,
   canPromoteToExecution,
+  canRolloverHearing,
 } from '@/features/auth/permissions';
 import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { PageHeader } from '@/shared/ui/PageHeader';
@@ -30,6 +31,7 @@ import { Spinner } from '@/shared/ui/Spinner';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/Input';
 import { Modal } from '@/shared/ui/Modal';
+import { Select, Textarea } from '@/shared/ui/FormFields';
 import { Table, TBody, TD, TH, THead, TR } from '@/shared/ui/Table';
 import { extractApiErrorMessage } from '@/shared/lib/apiError';
 import { RemindersSection } from '@/features/reminders/RemindersSection';
@@ -43,6 +45,7 @@ import {
   STAGE_TYPE_LABEL_AR,
   type HearingProgressionEntry,
   type PromoteToExecutionRequest,
+  type RolloverHearingRequest,
 } from '@/shared/types/domain';
 
 export function CaseDetailPage() {
@@ -84,6 +87,7 @@ export function CaseDetailPage() {
   const [promoteExecOpen, setPromoteExecOpen] = useState(false);
   const [editBasicOpen, setEditBasicOpen] = useState(false);
   const [correctOpen, setCorrectOpen] = useState(false);
+  const [openHearingOpen, setOpenHearingOpen] = useState(false);
 
   // Mini-Phase A (D-046) — when the user is allowed to assign a lawyer,
   // we already fetch the eligible-lawyers list inside AssignLawyerSection.
@@ -135,6 +139,23 @@ export function CaseDetailPage() {
     // Error is displayed inside the modal via promoteExecMut.error — no page-level banner needed.
   });
 
+  // "فتح جلسة جديدة" — adds a new hearing entry on the case's latest
+  // non-finalized stage. Reuses the existing rollover endpoint; backend
+  // gate is requireCaseOwnership → only the assigned lawyer.
+  const openHearingMut = useMutation({
+    mutationFn: (body: { stageId: number; req: RolloverHearingRequest }) =>
+      rolloverHearing(body.stageId, body.req),
+    onSuccess: (_data, vars) => {
+      setActionError(null);
+      setOpenHearingOpen(false);
+      void qc.invalidateQueries({ queryKey: ['stages', vars.stageId, 'history'] });
+      void qc.invalidateQueries({ queryKey: ['stages', vars.stageId, 'progression'] });
+      void qc.invalidateQueries({ queryKey: ['stages', vars.stageId] });
+      void qc.invalidateQueries({ queryKey: ['cases', caseId, 'stages'] });
+    },
+    onError: (e) => setActionError(extractApiErrorMessage(e)),
+  });
+
   if (!Number.isFinite(caseId)) return <p className="text-sm text-red-600">معرّف غير صالح.</p>;
 
   // PR-11 (customer feedback C-6 / Q-D): correction rights live on the CURRENT
@@ -143,6 +164,7 @@ export function CaseDetailPage() {
   const currentStage =
     (stagesQ.data ?? []).find((s) => s.id === caseQ.data?.currentStageId) ?? null;
   const canCorrect = canCorrectFinalizedCase(user, currentStage);
+  const canOpenHearing = canRolloverHearing(user, currentStage);
 
   // PR-8 (customer feedback B-2): hide the "actions on case level" panel
   // entirely if the current user has none of the actions available
@@ -273,8 +295,13 @@ export function CaseDetailPage() {
       </div>
 
       <Card className="mt-4">
-        <CardHeader>
+        <CardHeader className="flex items-center justify-between gap-2">
           <CardTitle>سجل الجلسات</CardTitle>
+          {canOpenHearing && currentStage && (
+            <Button size="sm" onClick={() => setOpenHearingOpen(true)}>
+              فتح جلسة جديدة
+            </Button>
+          )}
         </CardHeader>
         <CardBody>
           {(stagesQ.isLoading || hearingsLoading) && <Spinner className="text-brand-600" />}
@@ -340,6 +367,15 @@ export function CaseDetailPage() {
         // so the user only confirms / tweaks instead of re-typing everything.
         prefill={caseQ.data ?? null}
       />
+
+      {currentStage && (
+        <OpenHearingModal
+          open={openHearingOpen}
+          onClose={() => { setOpenHearingOpen(false); setActionError(null); }}
+          submitting={openHearingMut.isPending}
+          onSubmit={(req) => openHearingMut.mutate({ stageId: currentStage.id, req })}
+        />
+      )}
 
       {/* Mini-Phase A — Assign Lawyer (D-046). Hidden by the section itself
           when the user is not authorized for this case's (branch, dept). */}
@@ -489,6 +525,83 @@ function Labeled({
       {children}
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
+  );
+}
+
+// ---------- Open-hearing modal ----------
+// Records a new hearing on the case's current (active) stage. Wraps the existing
+// rollover endpoint with customer-facing wording ("فتح جلسة جديدة").
+
+const openHearingSchema = z.object({
+  nextHearingDate:        z.string().min(1, 'الرجاء اختيار تاريخ الجلسة'),
+  postponementReasonCode: z.string().min(1, 'الرجاء اختيار السبب'),
+  notes:                  z.string().max(2000).optional(),
+});
+type OpenHearingForm = z.infer<typeof openHearingSchema>;
+
+function OpenHearingModal({
+  open, onClose, onSubmit, submitting,
+}: { open: boolean; onClose: () => void; submitting: boolean;
+     onSubmit: (b: RolloverHearingRequest) => void }) {
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<OpenHearingForm>({
+    resolver: zodResolver(openHearingSchema),
+  });
+
+  const reasonsQ = useQuery({
+    queryKey: ['postponement-reasons'],
+    queryFn: getPostponementReasons,
+    enabled: open,
+    staleTime: 5 * 60_000,
+  });
+
+  return (
+    <Modal
+      open={open}
+      onClose={() => { reset(); onClose(); }}
+      title="فتح جلسة جديدة"
+      footer={
+        <>
+          <Button type="submit" form="open-hearing-form" disabled={submitting}>
+            {submitting ? <Spinner /> : null}<span>حفظ</span>
+          </Button>
+          <Button variant="ghost" onClick={() => { reset(); onClose(); }}>إلغاء</Button>
+        </>
+      }
+    >
+      <form
+        id="open-hearing-form"
+        className="space-y-3"
+        onSubmit={handleSubmit((v) => onSubmit({
+          nextHearingDate: v.nextHearingDate,
+          postponementReasonCode: v.postponementReasonCode,
+          notes: v.notes && v.notes.trim() ? v.notes.trim() : null,
+        }))}
+      >
+        <Labeled label="تاريخ الجلسة" error={errors.nextHearingDate?.message}>
+          <Input type="date" {...register('nextHearingDate')} />
+        </Labeled>
+        <Labeled label="سبب التأجيل" error={errors.postponementReasonCode?.message}>
+          <Select
+            {...register('postponementReasonCode')}
+            disabled={reasonsQ.isLoading || reasonsQ.isError}
+            defaultValue=""
+          >
+            <option value="" disabled>
+              {reasonsQ.isLoading ? 'جارٍ التحميل…' : '— اختر سببًا —'}
+            </option>
+            {reasonsQ.data?.map((r) => (
+              <option key={r.code} value={r.code}>{r.labelAr}</option>
+            ))}
+          </Select>
+          {reasonsQ.isError && (
+            <p className="mt-1 text-xs text-red-600">تعذّر تحميل قائمة الأسباب.</p>
+          )}
+        </Labeled>
+        <Labeled label="ملاحظة (اختياري)" error={errors.notes?.message}>
+          <Textarea rows={3} {...register('notes')} />
+        </Labeled>
+      </form>
+    </Modal>
   );
 }
 
