@@ -74,7 +74,14 @@ public class AttachmentService {
         StageInfo stage = caseStagePort.find(stageId)
                 .orElseThrow(() -> new NotFoundException("Stage not found: " + stageId));
         AuthorizationContext ctx = authorizationService.loadContext(actorUserId);
-        authorizationService.requireReadAccessToCase(ctx, stage.branchId(), stage.departmentId(),
+        // OR the case's original (branch, dept) with the stage's own so that the
+        // section-head / admin-clerk who registered the case keeps read access on
+        // every stage the case spawns — including APPEAL after promote-to-appeal.
+        // Without this, the attachments tab 403s with "تعذّر تحميل المرفقات" even
+        // though the same actor can open the stage detail page just fine.
+        authorizationService.requireReadAccessToStage(ctx,
+                stage.branchId(), stage.departmentId(),
+                stage.caseCreatedBranchId(), stage.caseCreatedDepartmentId(),
                 stage.currentOwnerUserId());
         return repo.findByAttachmentScopeTypeAndScopeIdAndActiveTrueOrderByUploadedAtDesc(
                 AttachmentScopeType.CASE_STAGE, stageId).stream().map(this::toDto).toList();
@@ -174,7 +181,13 @@ public class AttachmentService {
                 StageInfo s = caseStagePort.find(scopeId)
                         .orElseThrow(() -> new NotFoundException("Stage not found: " + scopeId));
                 AuthorizationContext ctx = authorizationService.loadContext(actorUserId);
-                authorizationService.requireReadAccessToCase(ctx, s.branchId(), s.departmentId(), s.currentOwnerUserId());
+                // Mirror listForStage: OR the case-creation (branch, dept) so the
+                // originating section-head can still download attachments from a
+                // post-promotion APPEAL stage.
+                authorizationService.requireReadAccessToStage(ctx,
+                        s.branchId(), s.departmentId(),
+                        s.caseCreatedBranchId(), s.caseCreatedDepartmentId(),
+                        s.currentOwnerUserId());
             }
             case EXECUTION_FILE -> { executionService.getFile(scopeId, actorUserId); }
             case EXECUTION_STEP -> { executionService.getFileForStep(scopeId, actorUserId); }
