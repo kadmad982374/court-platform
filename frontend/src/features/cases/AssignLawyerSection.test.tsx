@@ -90,7 +90,7 @@ describe('lawyerLabel', () => {
     expect(lawyerLabel(7, undefined)).toBe('#7');
   });
   it('returns the empty-owner placeholder when null', () => {
-    expect(lawyerLabel(null, [])).toBe('— (لا مالك)');
+    expect(lawyerLabel(null, [])).toBe('— (لا محامي مُسنَد)');
   });
 });
 
