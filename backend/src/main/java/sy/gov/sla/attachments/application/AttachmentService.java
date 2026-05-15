@@ -18,6 +18,7 @@ import sy.gov.sla.common.exception.NotFoundException;
 import sy.gov.sla.common.logging.UserActionLog;
 import sy.gov.sla.execution.application.ExecutionService;
 import sy.gov.sla.execution.api.ExecutionFileDto;
+import sy.gov.sla.identity.infrastructure.UserRepository;
 import sy.gov.sla.litigationregistration.application.CaseStagePort;
 import sy.gov.sla.litigationregistration.application.CaseStagePort.StageInfo;
 
@@ -50,6 +51,7 @@ public class AttachmentService {
     private final AuthorizationService authorizationService;
     private final CaseStagePort caseStagePort;
     private final ExecutionService executionService;
+    private final UserRepository userRepository;
 
     // ========== Upload ==========
 
@@ -229,9 +231,13 @@ public class AttachmentService {
     }
 
     private AttachmentDto toDto(Attachment a) {
+        String uploadedByFullName = a.getUploadedByUserId() == null ? null
+                : userRepository.findById(a.getUploadedByUserId())
+                        .map(u -> u.getFullName()).orElse(null);
         return new AttachmentDto(a.getId(), a.getAttachmentScopeType(), a.getScopeId(),
                 a.getOriginalFilename(), a.getContentType(), a.getFileSizeBytes(),
-                a.getUploadedByUserId(), a.getUploadedAt(), a.getChecksumSha256(), a.isActive());
+                a.getUploadedByUserId(), uploadedByFullName,
+                a.getUploadedAt(), a.getChecksumSha256(), a.isActive());
     }
 
     private static String sha256(byte[] bytes) {

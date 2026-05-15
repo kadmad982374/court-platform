@@ -553,6 +553,9 @@ export interface Attachment {
   contentType: string;
   fileSizeBytes: number;
   uploadedByUserId: number;
+  // Display-side enrichment from the backend (nullable when the user row
+  // is missing — defensive only).
+  uploadedByFullName: string | null;
   uploadedAt: string;
   checksumSha256: string;
   active: boolean;

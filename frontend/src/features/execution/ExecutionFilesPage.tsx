@@ -128,7 +128,6 @@ export function ExecutionFilesPage() {
             <Table>
               <THead>
                 <TR>
-                  <TH>المعرّف</TH>
                   <TH>الجهة المنفِّذة</TH>
                   <TH>المنفَّذ ضدّه</TH>
                   <TH>النوع/الرقم</TH>
@@ -141,7 +140,6 @@ export function ExecutionFilesPage() {
               <TBody>
                 {q.data.map((f) => (
                   <TR key={f.id}>
-                    <TD>{f.id}</TD>
                     <TD>{f.enforcingEntityName}</TD>
                     <TD>{f.executedAgainstName}</TD>
                     <TD>{f.executionFileType} / {f.executionFileNumber}</TD>

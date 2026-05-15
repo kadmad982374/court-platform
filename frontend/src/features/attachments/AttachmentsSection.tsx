@@ -158,7 +158,7 @@ export function AttachmentsSection(props: Props) {
                   <TD className="text-xs text-slate-500">{a.contentType}</TD>
                   <TD className="text-xs text-slate-500">{formatBytes(a.fileSizeBytes)}</TD>
                   <TD className="text-xs text-slate-500">{a.uploadedAt}</TD>
-                  <TD className="text-xs text-slate-500">#{a.uploadedByUserId}</TD>
+                  <TD className="text-xs text-slate-500">{a.uploadedByFullName ?? '—'}</TD>
                   <TD className="text-end">
                     <Button
                       size="sm"

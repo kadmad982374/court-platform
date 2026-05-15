@@ -12,6 +12,9 @@ public record AttachmentDto(
         String contentType,
         long fileSizeBytes,
         Long uploadedByUserId,
+        // Display-side enrichment so the UI can show the uploader's name
+        // instead of the raw user id (nullable when the user row is missing).
+        String uploadedByFullName,
         Instant uploadedAt,
         String checksumSha256,
         boolean active
