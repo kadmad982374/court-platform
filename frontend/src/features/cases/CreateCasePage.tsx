@@ -71,7 +71,7 @@ const schema = z.object({
     'GENERAL', 'INSURANCE', 'CUSTOMS', 'ADMINISTRATIVE',
   ]),
   firstHearingDate:        z.string().min(1, 'مطلوب'),       // yyyy-MM-dd
-  firstPostponementReason: z.string().trim().min(1, 'مطلوب').max(200),
+  firstPostponementReason: z.string().trim().min(1, 'الرجاء تعبئة سبب التأجيل الأول').max(200),
 });
 type FormValues = z.infer<typeof schema>;
 
@@ -428,7 +428,11 @@ export function CreateCasePage() {
               <Input type="date" {...register('firstHearingDate')} />
             </Field>
             <Field label="سبب التأجيل الأول" error={errors.firstPostponementReason?.message}>
-              <Textarea rows={2} {...register('firstPostponementReason')} />
+              <Textarea
+                rows={2}
+                placeholder="اكتب سبب التأجيل (مثال: تبليغ الخصم، استكمال مستندات…)"
+                {...register('firstPostponementReason')}
+              />
             </Field>
           </CardBody>
         </Card>
