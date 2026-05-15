@@ -67,6 +67,14 @@ public class CaseStagePortAdapter implements CaseStagePort {
 
     @Override
     @Transactional(readOnly = true)
+    public Optional<CaseBasisLabel> findCaseBasisLabel(Long caseId) {
+        if (caseId == null) return Optional.empty();
+        return caseRepo.findById(caseId)
+                .map(lc -> new CaseBasisLabel(lc.getOriginalBasisNumber(), lc.getBasisYear()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Set<Long> findCaseIdsByCourtId(Long courtId) {
         if (courtId == null) return Set.of();
         Set<Long> ids = new LinkedHashSet<>();

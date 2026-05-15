@@ -110,8 +110,7 @@ export function AssignLawyerSection({ litigationCase }: Props) {
       </CardHeader>
       <CardBody className="space-y-3">
         <p className="text-xs text-slate-500">
-          القائمة محصورة بمحامي نفس القسم/الفرع المسجَّلة فيه الدعوى (D-046).
-          الخادم هو السلطة النهائية على قبول الإسناد.
+          القائمة محصورة بمحامي نفس القسم/الفرع المسجَّلة فيه الدعوى.
         </p>
 
         <dl className="text-sm">

@@ -77,6 +77,18 @@ public class OrganizationService {
         return departmentRepository.findByBranchIdAndType(branchId, type).map(this::toDto);
     }
 
+    /** Lookup branch by id. Used by sibling modules that need the Arabic name for display. */
+    public java.util.Optional<BranchDto> findBranchById(Long branchId) {
+        if (branchId == null) return java.util.Optional.empty();
+        return branchRepository.findById(branchId).map(this::toDto);
+    }
+
+    /** Lookup department by id. Used by sibling modules that need the Arabic name for display. */
+    public java.util.Optional<DepartmentDto> findDepartmentById(Long departmentId) {
+        if (departmentId == null) return java.util.Optional.empty();
+        return departmentRepository.findById(departmentId).map(this::toDto);
+    }
+
     /** يتحقق من التكامل: المحكمة تنتمي للفرع، والقسم يطابق نوع المحكمة، والقسم تحت الفرع. */
     public void validateConsistency(Long branchId, Long departmentId, Long courtId) {
         Department dept = departmentRepository.findById(departmentId)

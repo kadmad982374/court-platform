@@ -21,6 +21,13 @@ public interface CaseStagePort {
     Optional<CaseAndCurrentStage> findCaseWithCurrentStage(Long caseId);
 
     /**
+     * Lightweight read-only lookup of a case's basis label (originalBasisNumber/basisYear).
+     * Used by sibling modules (execution) to display "source case" without coupling to
+     * LitigationCaseRepository or LitigationCase entity.
+     */
+    Optional<CaseBasisLabel> findCaseBasisLabel(Long caseId);
+
+    /**
      * PR-12 (customer feedback Q-A / E-2): set of {@code litigation_cases.id} for
      * cases registered in the given court. Used by the execution module to
      * filter execution-files by "region" (= court). Returns an empty set when
@@ -104,6 +111,11 @@ public interface CaseStagePort {
             boolean currentStageReadOnly,
             LifecycleStatus lifecycleStatus,
             Long currentOwnerUserId
+    ) {}
+
+    record CaseBasisLabel(
+            String basisNumber,
+            int basisYear
     ) {}
 
     record NewAppealStageInfo(

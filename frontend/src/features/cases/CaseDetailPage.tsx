@@ -236,11 +236,6 @@ export function CaseDetailPage() {
               <CardTitle>أفعال على مستوى الدعوى</CardTitle>
             </CardHeader>
             <CardBody className="space-y-3">
-              <p className="text-xs text-slate-500">
-                تظهر الأزرار فقط للمستخدمين المخوّلين وفق D-027 (نقل الملف إلى الاستئناف)
-                و D-030 (نقل الملف إلى التنفيذ). المنع الحقيقي على الخادم.
-              </p>
-
               <div className="flex flex-wrap gap-2">
                 {canEditCaseBasicData(user, caseQ.data ?? null) && (
                   <Button

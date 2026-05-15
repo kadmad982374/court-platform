@@ -99,11 +99,6 @@ export function ExecutionFilesPage() {
     <>
       <PageHeader
         title={isExecutedView ? 'الملفات المنفّذة' : 'ملفات التنفيذ'}
-        subtitle={
-          isExecutedView
-            ? 'الملفات التنفيذية التي أُغلقت (D-028). محكومة بنطاقك.'
-            : 'ملفات تنفيذية مستقلة (D-028). القائمة محكومة بنطاقك.'
-        }
       />
 
       <Card className="mb-4">
@@ -151,7 +146,7 @@ export function ExecutionFilesPage() {
                     <TD>{f.executedAgainstName}</TD>
                     <TD>{f.executionFileType} / {f.executionFileNumber}</TD>
                     <TD>{f.executionYear}</TD>
-                    <TD>{f.assignedUserId ? `#${f.assignedUserId}` : '—'}</TD>
+                    <TD>{f.assignedUserFullName ?? (f.assignedUserId ? '—' : '—')}</TD>
                     <TD>{EXECUTION_FILE_STATUS_LABEL_AR[f.status]}</TD>
                     <TD className="text-end">
                       <Button size="sm" variant="secondary"

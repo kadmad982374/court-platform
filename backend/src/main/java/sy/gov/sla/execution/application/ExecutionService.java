@@ -26,8 +26,10 @@ import sy.gov.sla.execution.domain.ExecutionFileStatus;
 import sy.gov.sla.execution.domain.ExecutionStep;
 import sy.gov.sla.execution.infrastructure.ExecutionFileRepository;
 import sy.gov.sla.execution.infrastructure.ExecutionStepRepository;
+import sy.gov.sla.identity.infrastructure.UserRepository;
 import sy.gov.sla.litigationregistration.application.CaseStagePort;
 import sy.gov.sla.litigationregistration.application.CaseStagePort.CaseAndCurrentStage;
+import sy.gov.sla.litigationregistration.application.CaseStagePort.CaseBasisLabel;
 import sy.gov.sla.litigationregistration.application.CaseStagePort.PromoteToExecutionResult;
 import sy.gov.sla.litigationregistration.domain.LifecycleStatus;
 import sy.gov.sla.litigationregistration.domain.StageStatus;
@@ -59,6 +61,7 @@ public class ExecutionService {
     private final CaseStagePort caseStagePort;
     private final AuthorizationService authorizationService;
     private final OrganizationService organizationService;
+    private final UserRepository userRepository;
     private final ApplicationEventPublisher events;
 
     // ========== Promote-to-execution ==========
@@ -294,12 +297,23 @@ public class ExecutionService {
     // ========== Mapping ==========
 
     private ExecutionFileDto toDto(ExecutionFile ef) {
+        String branchNameAr = organizationService.findBranchById(ef.getBranchId())
+                .map(b -> b.nameAr()).orElse(null);
+        String departmentNameAr = organizationService.findDepartmentById(ef.getDepartmentId())
+                .map(d -> d.nameAr()).orElse(null);
+        String assignedUserFullName = ef.getAssignedUserId() == null ? null
+                : userRepository.findById(ef.getAssignedUserId())
+                        .map(u -> u.getFullName()).orElse(null);
+        CaseBasisLabel basis = caseStagePort.findCaseBasisLabel(ef.getLitigationCaseId()).orElse(null);
         return new ExecutionFileDto(
                 ef.getId(), ef.getLitigationCaseId(), ef.getSourceStageId(),
                 ef.getEnforcingEntityName(), ef.getExecutedAgainstName(),
                 ef.getExecutionFileType(), ef.getExecutionFileNumber(), ef.getExecutionYear(),
                 ef.getBranchId(), ef.getDepartmentId(), ef.getAssignedUserId(),
-                ef.getStatus(), ef.getCreatedByUserId(), ef.getCreatedAt(), ef.getUpdatedAt());
+                ef.getStatus(), ef.getCreatedByUserId(), ef.getCreatedAt(), ef.getUpdatedAt(),
+                branchNameAr, departmentNameAr, assignedUserFullName,
+                basis == null ? null : basis.basisNumber(),
+                basis == null ? null : basis.basisYear());
     }
 
     private ExecutionStepDto toStepDto(ExecutionStep s) {

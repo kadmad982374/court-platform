@@ -74,7 +74,7 @@ export function ExecutionFileDetailPage() {
 
   return (
     <>
-      <PageHeader title={`ملف تنفيذ #${id}`} subtitle="Timeline إجراءات (D-031): الخطوات append-only." />
+      <PageHeader title="ملف التنفيذ" />
 
       {actionError && (
         <div role="alert" className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -98,10 +98,21 @@ export function ExecutionFileDetailPage() {
                 <Field k="المنفَّذ ضدّه"   v={file.executedAgainstName} />
                 <Field k="النوع/الرقم"    v={`${file.executionFileType} / ${file.executionFileNumber}`} />
                 <Field k="السنة"            v={String(file.executionYear)} />
-                <Field k="الفرع/القسم"     v={`#${file.branchId} / #${file.departmentId}`} />
-                <Field k="المسؤول"          v={file.assignedUserId ? `#${file.assignedUserId}` : '— (غير مسند)'} />
+                <Field
+                  k="الفرع/القسم"
+                  v={`${file.branchNameAr ?? '—'} / ${file.departmentNameAr ?? '—'}`}
+                />
+                <Field
+                  k="المسؤول"
+                  v={file.assignedUserFullName ?? (file.assignedUserId ? '—' : '— (غير مسند)')}
+                />
                 <Field k="الحالة"           v={EXECUTION_FILE_STATUS_LABEL_AR[file.status]} />
-                <Field k="الدعوى المصدر"   v={`#${file.litigationCaseId}`} />
+                <Field
+                  k="الدعوى المصدر"
+                  v={file.sourceCaseBasisNumber
+                      ? `${file.sourceCaseBasisNumber}/${file.sourceCaseBasisYear ?? ''}`
+                      : '—'}
+                />
               </dl>
             )}
           </CardBody>
@@ -112,8 +123,7 @@ export function ExecutionFileDetailPage() {
             <CardHeader><CardTitle>أفعال الملف</CardTitle></CardHeader>
             <CardBody>
               <p className="text-xs text-slate-500">
-                إضافة خطوة (D-031) متاحة للمحامي المُسنَد لهذا الملف فقط
-                (PR-12 / Q-E).
+                إضافة الخطوات متاحة للمحامي المُسنَد لهذا الملف فقط.
               </p>
               <div className="mt-2">
                 {showAdd ? (
@@ -170,7 +180,7 @@ export function ExecutionFileDetailPage() {
 
       {!showSteps && (
         <p className="mt-4 text-xs text-slate-500">
-          عرض الخطوات مقصور على المحامي المُسنَد للملف (PR-12 / C-7).
+          عرض الخطوات مقصور على المحامي المُسنَد للملف.
         </p>
       )}
 

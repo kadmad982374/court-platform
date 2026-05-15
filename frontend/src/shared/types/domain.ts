@@ -498,6 +498,13 @@ export interface ExecutionFile {
   createdByUserId: number;
   createdAt: string;
   updatedAt: string;
+  // Display-side enrichment from the backend so the UI can show Arabic names
+  // instead of raw IDs (nullable when the related row is missing).
+  branchNameAr: string | null;
+  departmentNameAr: string | null;
+  assignedUserFullName: string | null;
+  sourceCaseBasisNumber: string | null;
+  sourceCaseBasisYear: number | null;
 }
 
 export interface ExecutionStep {

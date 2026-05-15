@@ -66,7 +66,11 @@ function file(over: Partial<ExecutionFile> = {}): ExecutionFile {
     executionFileType: 'A', executionFileNumber: '1', executionYear: 2026,
     branchId: 1, departmentId: 1, assignedUserId: 42,
     status: 'OPEN', createdByUserId: 1,
-    createdAt: '', updatedAt: '', ...over,
+    createdAt: '', updatedAt: '',
+    branchNameAr: null, departmentNameAr: null,
+    assignedUserFullName: null, sourceCaseBasisNumber: null,
+    sourceCaseBasisYear: null,
+    ...over,
   };
 }
 

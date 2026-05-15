@@ -242,8 +242,7 @@ export function CreateCasePage() {
         <Card>
           <CardBody>
             <p className="text-sm text-slate-600">
-              لا تملك صلاحية إنشاء دعوى. هذا الإجراء متاح لرؤساء الأقسام، أو الموظف الإداري المُفوَّض
-              بصلاحية <code>CREATE_CASE</code> (D-004).
+              لا تملك صلاحية إنشاء دعوى. هذا الإجراء متاح لرؤساء الأقسام، أو الموظف الإداري المُفوَّض بصلاحية إنشاء الدعاوى.
             </p>
           </CardBody>
         </Card>
@@ -411,7 +410,7 @@ export function CreateCasePage() {
             </Field>
             <Field label="تاريخ تسجيل الملف" error={errors.originalRegistrationDate?.message}>
               <Input type="date" {...register('originalRegistrationDate')} />
-              <p className="mt-1 text-xs text-slate-500">D-006: ثابت لا يُعدَّل بعد الإنشاء.</p>
+              <p className="mt-1 text-xs text-slate-500">ثابت لا يُعدَّل بعد الإنشاء.</p>
             </Field>
             <Field label="عام الأساس">
               <Input

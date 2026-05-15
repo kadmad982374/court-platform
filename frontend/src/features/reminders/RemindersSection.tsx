@@ -93,7 +93,7 @@ export function RemindersSection({ caseId }: Props) {
 
         <p className="mb-3 text-xs text-slate-500">
           {isLawyer ? (
-            <>التذكيرات شخصية (D-037): يَرى كل محامٍ تذكيراته فقط على الدعاوى التي يتابعها.
+            <>التذكيرات شخصية: يَرى كل محامٍ تذكيراته فقط على الدعاوى التي يتابعها.
             التحويل إلى تمَّ أو إلغاء للمالك فقط.</>
           ) : (
             <>عرض رقابي للقراءة فقط: تظهر هنا تذكيرات المحامي المتابع للدعوى. لا يمكنك
@@ -230,7 +230,7 @@ function CreateReminderModal({
           {errors.reminderText && <p className="mt-1 text-xs text-red-600">{errors.reminderText.message}</p>}
         </div>
         <p className="text-xs text-slate-400">
-          التذكير شخصي ولا يمكن مشاركته (D-037).
+          التذكير شخصي ولا يمكن مشاركته.
         </p>
       </form>
     </Modal>

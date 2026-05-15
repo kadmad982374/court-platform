@@ -127,7 +127,7 @@ export function AttachmentsSection(props: Props) {
             </>
           ) : (
             <p className="text-xs text-slate-400">
-              لا تملك صلاحية رفع المرفقات على هذا النطاق (D-036).
+              لا تملك صلاحية رفع المرفقات على هذا النطاق.
             </p>
           )}
         </div>

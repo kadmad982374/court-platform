@@ -19,6 +19,13 @@ public record ExecutionFileDto(
         ExecutionFileStatus status,
         Long createdByUserId,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        // Display-side enrichment so the UI can show Arabic names instead of raw IDs.
+        // Nullable when the related row is missing (defensive — should not happen).
+        String branchNameAr,
+        String departmentNameAr,
+        String assignedUserFullName,
+        String sourceCaseBasisNumber,
+        Integer sourceCaseBasisYear
 ) {}
 
