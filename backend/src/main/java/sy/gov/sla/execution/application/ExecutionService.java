@@ -151,6 +151,7 @@ public class ExecutionService {
     @Transactional(readOnly = true)
     public List<ExecutionFileDto> listFiles(Long branchId, Long departmentId, Long courtId,
                                             ExecutionFileStatus status, Integer year,
+                                            boolean excludeClosed,
                                             int page, int size, Long actorUserId) {
         if (size <= 0) size = 20;
         if (size > 100) size = 100;
@@ -175,6 +176,8 @@ public class ExecutionService {
             if (branchId != null)     ands.add(cb.equal(root.get("branchId"), branchId));
             if (departmentId != null) ands.add(cb.equal(root.get("departmentId"), departmentId));
             if (status != null)       ands.add(cb.equal(root.get("status"), status));
+            // Customer feedback round-3 — default "ملفات التنفيذ" tab hides CLOSED rows.
+            if (excludeClosed)        ands.add(cb.notEqual(root.get("status"), ExecutionFileStatus.CLOSED));
             if (year != null)         ands.add(cb.equal(root.get("executionYear"), year));
             if (courtCaseIds != null) {
                 if (courtCaseIds.isEmpty()) ands.add(cb.disjunction());
@@ -279,6 +282,14 @@ public class ExecutionService {
             throw new ForbiddenException("Only the user assigned to this execution file may add steps");
         }
 
+        // Customer feedback round-3 — a CLOSURE step terminates the file. Once
+        // the file is CLOSED (or ARCHIVED) no further steps may be appended.
+        if (ef.getStatus() == ExecutionFileStatus.CLOSED
+                || ef.getStatus() == ExecutionFileStatus.ARCHIVED) {
+            throw new ConflictException("FILE_CLOSED",
+                    "تم إغلاق هذا الملف ولا يمكن إضافة خطوات جديدة عليه.");
+        }
+
         Instant now = Instant.now();
         ExecutionStep step = ExecutionStep.builder()
                 .executionFileId(ef.getId())
@@ -289,6 +300,13 @@ public class ExecutionService {
                 .createdAt(now)
                 .build();
         step = stepRepo.save(step);
+
+        // Customer feedback round-3 — adding a CLOSURE step flips the file to
+        // CLOSED so it moves from "ملفات التنفيذ" to "الملفات المنفّذة" and the
+        // FE's add-step button hides automatically on the next refetch.
+        if (req.stepType() == sy.gov.sla.execution.domain.ExecutionStepType.CLOSURE) {
+            ef.setStatus(ExecutionFileStatus.CLOSED);
+        }
 
         ef.setUpdatedAt(now);
 
@@ -348,6 +366,13 @@ public class ExecutionService {
                 : userRepository.findById(ef.getAssignedUserId())
                         .map(u -> u.getFullName()).orElse(null);
         CaseBasisLabel basis = caseStagePort.findCaseBasisLabel(ef.getLitigationCaseId()).orElse(null);
+        // Customer feedback round-3 — surface the latest step's type so the
+        // file's "الحالة" badge tracks the most-recent action instead of the
+        // static OPEN/IN_PROGRESS enum.
+        var latestStepType = stepRepo
+                .findFirstByExecutionFileIdOrderByStepDateDescIdDesc(ef.getId())
+                .map(ExecutionStep::getStepType)
+                .orElse(null);
         return new ExecutionFileDto(
                 ef.getId(), ef.getLitigationCaseId(), ef.getSourceStageId(),
                 ef.getEnforcingEntityName(), ef.getExecutedAgainstName(),
@@ -356,7 +381,8 @@ public class ExecutionService {
                 ef.getStatus(), ef.getCreatedByUserId(), ef.getCreatedAt(), ef.getUpdatedAt(),
                 branchNameAr, departmentNameAr, assignedUserFullName,
                 basis == null ? null : basis.basisNumber(),
-                basis == null ? null : basis.basisYear());
+                basis == null ? null : basis.basisYear(),
+                latestStepType);
     }
 
     private ExecutionStepDto toStepDto(ExecutionStep s) {

@@ -1,15 +1,17 @@
-// PR-13 / PR-13b (customer feedback A-2 / Q-B / Q-F).
+// PR-13 / PR-13b / customer feedback round-3.
 //
 // Pie chart + money totals widget. Reused on the dashboard (home) AND the
-// cases page per Q-B. The slices follow the customer's example pie:
-//   نشطة (Active) / مفصولة بدون قرار (Resolved no-decision) /
-//   لصالح الدولة / ضد الدولة / صلح / غير نهائي.
+// cases page per Q-B.
 //
-// PR-13b: switched to `byCurrentOutcome` from the backend, which is a
-// mutually-exclusive bucket per case (sum equals totalCases). The earlier
-// "Active = sum of lifecycles" math double-counted cases whose old stages
-// already had decisions (e.g. an appeal-finalized case showed up in BOTH
-// the Active slice and FOR_ENTITY/AGAINST_ENTITY).
+// Round-3 simplification: the customer asked for a binary view that mirrors
+// the cases-list "الحالة" column (قائمة / محسومة), instead of the prior
+// 6-slice break-down by outcome. We still consume `byCurrentOutcome` from
+// the backend (mutually-exclusive per case) and aggregate it into two
+// buckets:
+//   - قائمة  = ACTIVE (case has no final decision yet)
+//   - محسومة = sum of FOR_ENTITY + AGAINST_ENTITY + SETTLEMENT + NON_FINAL
+//             + RESOLVED_NO_DECISION (every case that reached some final
+//             outcome).
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -18,14 +20,12 @@ import { getCaseSummary, type CaseSummary } from './api';
 import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { Spinner } from '@/shared/ui/Spinner';
 import { extractApiErrorMessage } from '@/shared/lib/apiError';
+import { useAuth } from '@/features/auth/AuthContext';
+import { hasRole } from '@/features/auth/permissions';
 
 const SLICE_COLORS = {
-  active:        '#2563eb', // blue-600
-  resolved:      '#64748b', // slate-500
-  forEntity:     '#16a34a', // green-600
-  againstEntity: '#dc2626', // red-600
-  settlement:    '#f59e0b', // amber-500
-  nonFinal:      '#a855f7', // purple-500
+  open:   '#2563eb', // blue-600
+  closed: '#64748b', // slate-500
 } as const;
 
 interface Slice {
@@ -37,13 +37,16 @@ interface Slice {
 
 function buildSlices(s: CaseSummary): Slice[] {
   const o = s.byCurrentOutcome ?? {};
+  const openCount = o.ACTIVE ?? 0;
+  const closedCount =
+      (o.FOR_ENTITY            ?? 0)
+    + (o.AGAINST_ENTITY        ?? 0)
+    + (o.SETTLEMENT            ?? 0)
+    + (o.NON_FINAL             ?? 0)
+    + (o.RESOLVED_NO_DECISION  ?? 0);
   return [
-    { key: 'active',        label: 'نشطة',                value: o.ACTIVE ?? 0,                color: SLICE_COLORS.active        },
-    { key: 'forEntity',     label: 'لصالح الدولة',         value: o.FOR_ENTITY ?? 0,            color: SLICE_COLORS.forEntity     },
-    { key: 'againstEntity', label: 'ضد الدولة',            value: o.AGAINST_ENTITY ?? 0,        color: SLICE_COLORS.againstEntity },
-    { key: 'settlement',    label: 'صلح',                 value: o.SETTLEMENT ?? 0,            color: SLICE_COLORS.settlement    },
-    { key: 'nonFinal',      label: 'غير نهائي',            value: o.NON_FINAL ?? 0,             color: SLICE_COLORS.nonFinal      },
-    { key: 'resolved',      label: 'مفصولة بدون قرار',     value: o.RESOLVED_NO_DECISION ?? 0,  color: SLICE_COLORS.resolved      },
+    { key: 'open',   label: 'قائمة',  value: openCount,   color: SLICE_COLORS.open   },
+    { key: 'closed', label: 'محسومة', value: closedCount, color: SLICE_COLORS.closed },
   ].filter((s) => s.value > 0);
 }
 
@@ -86,10 +89,16 @@ function formatMoney(n: number | string): string {
 }
 
 export function CaseSummaryWidget({ compact = false }: { compact?: boolean }) {
+  const { user } = useAuth();
+  // Customer feedback round-3 — hide the stats widget for state lawyers.
+  // It mixes scopes that don't matter to a lawyer working their own cases.
+  const hidden = hasRole(user, 'STATE_LAWYER');
+
   const q = useQuery({
     queryKey: ['reports', 'case-summary'],
     queryFn: () => getCaseSummary(),
     staleTime: 30_000,
+    enabled: !hidden,
   });
 
   const slices = useMemo(() => (q.data ? buildSlices(q.data) : []), [q.data]);
@@ -99,6 +108,8 @@ export function CaseSummaryWidget({ compact = false }: { compact?: boolean }) {
   // slice sum if backend ever returns inconsistent data.
   const sliceSum = slices.reduce((acc, s) => acc + s.value, 0);
   const denom = sliceSum > 0 ? sliceSum : total;
+
+  if (hidden) return null;
 
   return (
     <Card>

@@ -40,7 +40,7 @@ import {
 } from '@/shared/api/users';
 import {
   ENTRY_TYPE_LABEL_AR,
-  LIFECYCLE_LABEL_AR,
+  caseSimpleStatus,
   PUBLIC_ENTITY_POSITION_LABEL_AR,
   STAGE_TYPE_LABEL_AR,
   type HearingProgressionEntry,
@@ -212,7 +212,7 @@ export function CaseDetailPage() {
                 <Field k="الجهة العامة" v={caseQ.data.publicEntityName} />
                 <Field k="الصفة"  v={PUBLIC_ENTITY_POSITION_LABEL_AR[caseQ.data.publicEntityPosition]} />
                 <Field k="الخصم" v={caseQ.data.opponentName} />
-                <Field k="حالة الدعوة" v={LIFECYCLE_LABEL_AR[caseQ.data.lifecycleStatus]} />
+                <Field k="حالة الدعوى" v={caseSimpleStatus(caseQ.data)} />
                 <Field
                   k="المرحلة الحالية"
                   v={currentStage ? STAGE_TYPE_LABEL_AR[currentStage.stageType] : '—'}

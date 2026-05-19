@@ -94,10 +94,13 @@ export function ExecutionFilesPage() {
   const initialStatus = searchParams.get('status') as ExecutionFileStatus | null;
   const isExecutedView = initialStatus === 'CLOSED';
 
+  // Customer feedback round-3 — the default "ملفات التنفيذ" tab MUST exclude
+  // closed files (those belong only to "الملفات المنفّذة"). The executed view
+  // (?status=CLOSED) keeps its server-side status filter as before.
   const seed: ListExecutionFilesQuery = {
     page: 0,
     size: 20,
-    ...(initialStatus ? { status: initialStatus } : {}),
+    ...(initialStatus ? { status: initialStatus } : { excludeClosed: true }),
   };
   const [pending, setPending] = useState<ListExecutionFilesQuery>(seed);
   const [applied, setApplied] = useState<ListExecutionFilesQuery>(seed);
@@ -107,7 +110,7 @@ export function ExecutionFilesPage() {
     const next: ListExecutionFilesQuery = {
       page: 0,
       size: 20,
-      ...(initialStatus ? { status: initialStatus } : {}),
+      ...(initialStatus ? { status: initialStatus } : { excludeClosed: true }),
     };
     setPending(next);
     setApplied(next);
@@ -292,19 +295,9 @@ function FilterForm({
         />
       </FilterField>
 
-      <FilterField label="الحالة">
-        <Select
-          value={pending.status ?? ''}
-          onChange={(e) => setPending((p) => ({
-            ...p, status: (e.target.value || undefined) as ExecutionFileStatus | undefined,
-          }))}
-        >
-          <option value="">الكل</option>
-          {(['OPEN', 'IN_PROGRESS', 'CLOSED', 'ARCHIVED'] as ExecutionFileStatus[]).map((s) => (
-            <option key={s} value={s}>{EXECUTION_FILE_STATUS_LABEL_AR[s]}</option>
-          ))}
-        </Select>
-      </FilterField>
+      {/* Customer feedback round-3 — الحالة filter removed; closed files now
+          live exclusively in the "الملفات المنفّذة" sidebar entry, so the
+          dropdown was redundant. */}
 
       <div className="md:col-span-6 flex justify-end gap-2">
         <Button type="button" variant="ghost" onClick={onClear}>مسح</Button>

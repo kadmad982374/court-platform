@@ -33,7 +33,7 @@ export const NAV_ITEMS: NavItem[] = [
 
   // ---- Business (Phase 9) ----
   // D-021/D-025/D-031: backend enforces scope; UI shows what server returns.
-  { to: '/cases',             label: 'الدعاوى',     allowedRoles: ALL_ROLES, section: 'الأعمال' },
+  { to: '/cases',             label: 'سجل الدعاوى', allowedRoles: ALL_ROLES, section: 'الأعمال' },
   { to: '/resolved-register', label: 'سجل الفصل',  allowedRoles: ALL_ROLES, section: 'الأعمال' },
   // Customer feedback round-3: hide execution entries for users that have no
   // path into the execution module (e.g. SECTION_HEAD of FIRST_INSTANCE).

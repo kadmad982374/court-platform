@@ -13,6 +13,11 @@ export interface ListExecutionFilesQuery {
   courtId?: number;
   status?: ExecutionFileStatus;
   year?: number;
+  /**
+   * Customer feedback round-3 — the default "ملفات التنفيذ" tab sets this so
+   * CLOSED files don't appear there; they live only in "الملفات المنفّذة".
+   */
+  excludeClosed?: boolean;
   page?: number;
   size?: number;
 }

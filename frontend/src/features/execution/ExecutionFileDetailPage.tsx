@@ -27,7 +27,6 @@ import { Modal } from '@/shared/ui/Modal';
 import { Table, TBody, TD, TH, THead, TR } from '@/shared/ui/Table';
 import { extractApiErrorMessage } from '@/shared/lib/apiError';
 import {
-  EXECUTION_FILE_STATUS_LABEL_AR,
   EXECUTION_STEP_TYPE_LABEL_AR,
   type AddExecutionStepRequest,
   type ExecutionStepType,
@@ -84,6 +83,9 @@ export function ExecutionFileDetailPage() {
     onSuccess: () => {
       setActionError(null); setAddOpen(false);
       void qc.invalidateQueries({ queryKey: ['execution-files', id, 'steps'] });
+      // Customer feedback round-3 — file's "الحالة" mirrors the latest step,
+      // so refetch the file payload too whenever a step is added.
+      void qc.invalidateQueries({ queryKey: ['execution-files', id] });
     },
     onError: (e) => setActionError(extractApiErrorMessage(e)),
   });
@@ -127,7 +129,12 @@ export function ExecutionFileDetailPage() {
                   k="المسؤول"
                   v={file.assignedUserFullName ?? (file.assignedUserId ? '—' : '— (غير مسند)')}
                 />
-                <Field k="الحالة"           v={EXECUTION_FILE_STATUS_LABEL_AR[file.status]} />
+                <Field
+                  k="الحالة"
+                  v={file.latestStepType
+                      ? EXECUTION_STEP_TYPE_LABEL_AR[file.latestStepType]
+                      : 'لم تُضف خطوات بعد'}
+                />
                 <Field
                   k="الدعوى المصدر"
                   v={file.sourceCaseBasisNumber

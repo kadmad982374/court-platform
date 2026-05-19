@@ -263,13 +263,48 @@ export type StageStatus =
 export const STAGE_STATUS_LABEL_AR: Record<StageStatus, string> = {
   REGISTERED:               'مسجَّلة',
   ASSIGNED:                 'مُسنَدة',
-  IN_PROGRESS:              'قيد المتابعة',
+  IN_PROGRESS:              'قائمة',
   FINALIZED:                'مفصولة',
   PROMOTED_TO_APPEAL:       'مُحوّلة إلى الاستئناف',
   PROMOTED_TO_EXECUTION:    'مُحوّلة إلى التنفيذ',
   PROMOTED_TO_CONCILIATION: 'مُحوّلة إلى الصلح',
   ARCHIVED:                 'مؤرشفة',
 };
+
+/**
+ * Customer feedback round-3 — collapse all the rich stage/lifecycle states
+ * into the binary "is this case decided or still open?" the customer wants
+ * to see in the cases list and in the dashboard statistics:
+ *
+ *   - "محسومة" — the case has reached a final decision (any stage is
+ *     FINALIZED, or the case lifecycle is CLOSED).
+ *   - "قائمة"  — anything else (still being worked on).
+ */
+export type CaseSimpleStatus = 'قائمة' | 'محسومة';
+
+export function caseSimpleStatus(c: Pick<LitigationCase, 'lifecycleStatus' | 'stages'>): CaseSimpleStatus {
+  if (c.lifecycleStatus === 'CLOSED') return 'محسومة';
+  if (c.stages?.some((s) => s.stageStatus === 'FINALIZED')) return 'محسومة';
+  return 'قائمة';
+}
+
+/**
+ * Stage-level binary status. A stage is "محسومة" once it has been decided
+ * (FINALIZED), promoted onward (PROMOTED_TO_*), or archived — those are the
+ * stages that show up in سجل الفصل. Everything else is still "قائمة".
+ */
+export function stageSimpleStatus(s: StageStatus): CaseSimpleStatus {
+  switch (s) {
+    case 'FINALIZED':
+    case 'ARCHIVED':
+    case 'PROMOTED_TO_APPEAL':
+    case 'PROMOTED_TO_EXECUTION':
+    case 'PROMOTED_TO_CONCILIATION':
+      return 'محسومة';
+    default:
+      return 'قائمة';
+  }
+}
 
 export type LifecycleStatus = 'NEW' | 'ACTIVE' | 'IN_APPEAL' | 'IN_EXECUTION' | 'CLOSED';
 export const LIFECYCLE_LABEL_AR: Record<LifecycleStatus, string> = {
@@ -513,6 +548,13 @@ export interface ExecutionFile {
   assignedUserFullName: string | null;
   sourceCaseBasisNumber: string | null;
   sourceCaseBasisYear: number | null;
+  /**
+   * Customer feedback round-3 — the most-recently added step's type. Used by
+   * the execution-file detail page as the "الحالة" badge so the badge tracks
+   * the last "نوع الخطوة" entered instead of the static OPEN/IN_PROGRESS
+   * enum. Null when the file has no steps yet.
+   */
+  latestStepType?: ExecutionStepType | null;
 }
 
 export interface ExecutionStep {

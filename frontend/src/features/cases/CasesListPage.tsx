@@ -29,8 +29,8 @@ import { useAuth } from '@/features/auth/AuthContext';
 import { canCreateCase, canDeleteCase, hasRole } from '@/features/auth/permissions';
 import { CaseSummaryWidget } from '@/features/reports/CaseSummaryWidget';
 import {
+  caseSimpleStatus,
   DEPARTMENT_TYPE_LABEL_AR,
-  LIFECYCLE_LABEL_AR,
   PUBLIC_ENTITY_POSITION_LABEL_AR,
   type CurrentUser,
   type Department,
@@ -215,7 +215,7 @@ export function CasesListPage() {
                       <TD>{PUBLIC_ENTITY_POSITION_LABEL_AR[c.publicEntityPosition]}</TD>
                       <TD>{c.opponentName}</TD>
                       <TD>{c.lastHearingDate ?? '—'}</TD>
-                      <TD>{LIFECYCLE_LABEL_AR[c.lifecycleStatus]}</TD>
+                      <TD>{caseSimpleStatus(c)}</TD>
                       <TD className="text-end">
                         <div className="flex justify-end gap-2">
                           <Button

@@ -36,11 +36,16 @@ public class ExecutionController {
             @RequestParam(value = "courtId",      required = false) Long courtId,
             @RequestParam(value = "status",       required = false) ExecutionFileStatus status,
             @RequestParam(value = "year",         required = false) Integer year,
+            // Customer feedback round-3 — the "ملفات التنفيذ" tab passes
+            // excludeClosed=true so CLOSED files don't appear there; they
+            // live only in the "الملفات المنفّذة" (?status=CLOSED) tab.
+            @RequestParam(value = "excludeClosed", defaultValue = "false") boolean excludeClosed,
             @RequestParam(value = "page",         defaultValue = "0")  int page,
             @RequestParam(value = "size",         defaultValue = "20") int size
     ) {
         Long actor = SecurityUtils.currentUserOrThrow().userId();
-        return service.listFiles(branchId, departmentId, courtId, status, year, page, size, actor);
+        return service.listFiles(branchId, departmentId, courtId, status, year,
+                excludeClosed, page, size, actor);
     }
 
     @GetMapping("/execution-files/{id}")

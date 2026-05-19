@@ -28,6 +28,9 @@ import sy.gov.sla.litigationregistration.domain.*;
 import sy.gov.sla.litigationregistration.infrastructure.CaseStageRepository;
 import sy.gov.sla.litigationregistration.infrastructure.LitigationCaseRepository;
 import sy.gov.sla.identity.infrastructure.UserRepository;
+import sy.gov.sla.litigationprogression.domain.EntryType;
+import sy.gov.sla.litigationprogression.domain.HearingProgressionEntry;
+import sy.gov.sla.litigationprogression.infrastructure.HearingProgressionEntryRepository;
 import sy.gov.sla.organization.application.OrganizationService;
 
 import java.time.Instant;
@@ -50,6 +53,7 @@ public class LitigationCaseService {
     private final ApplicationEventPublisher events;
     private final UserRepository userRepo;
     private final JdbcTemplate jdbc;
+    private final HearingProgressionEntryRepository hearingRepo;
 
     // ========== Create ==========
 
@@ -100,6 +104,20 @@ public class LitigationCaseService {
                 .startedAt(now)
                 .build();
         stage = stageRepo.save(stage);
+
+        // Customer feedback round-3 — seed an INITIAL hearing entry so the
+        // first hearing shows up in the lawyer's "سجل الجلسات" the moment the
+        // case is created. Without this the table stays empty until someone
+        // manually opens a hearing, and the لاوyer can't see the date that was
+        // already entered at registration time.
+        hearingRepo.save(HearingProgressionEntry.builder()
+                .caseStageId(stage.getId())
+                .hearingDate(stage.getFirstHearingDate())
+                .postponementReasonLabel(stage.getFirstPostponementReason())
+                .enteredByUserId(actorUserId)
+                .entryType(EntryType.INITIAL)
+                .createdAt(now)
+                .build());
 
         lc.setCurrentStageId(stage.getId());
         lc.setUpdatedAt(now);
@@ -289,6 +307,12 @@ public class LitigationCaseService {
         } else if (filter != null) {
             spec = filter;
         }
+        // Customer feedback round-3: the cases list (سجل الدعاوى) must hold
+        // ONLY non-decided cases. Anything that has reached a final decision
+        // belongs to سجل الفصل, not here — so we always AND in an exclusion
+        // for closed-lifecycle + any-FINALIZED-stage cases.
+        Specification<LitigationCase> excludeDecided = buildExcludeDecidedSpec();
+        spec = (spec == null) ? excludeDecided : spec.and(excludeDecided);
 
         Page<LitigationCase> p = (spec == null)
                 ? Page.empty(pageable)
@@ -307,6 +331,28 @@ public class LitigationCaseService {
                 .map(lc -> toDto(lc, stagesByCase.getOrDefault(lc.getId(), List.of())))
                 .toList();
         return new PageResponse<>(content, p.getNumber(), p.getSize(), p.getTotalElements(), p.getTotalPages());
+    }
+
+    /**
+     * Customer feedback round-3 — keep "محسومة" cases out of سجل الدعاوى.
+     *
+     * Mirrors the frontend {@code caseSimpleStatus} helper:
+     *   excluded when {@code lifecycle == CLOSED}
+     *           OR there exists any stage with {@code stageStatus == FINALIZED}.
+     */
+    private Specification<LitigationCase> buildExcludeDecidedSpec() {
+        return (root, query, cb) -> {
+            Predicate notClosed = cb.notEqual(root.get("lifecycleStatus"), LifecycleStatus.CLOSED);
+
+            Subquery<Long> finalizedStageSub = query.subquery(Long.class);
+            Root<sy.gov.sla.litigationregistration.domain.CaseStage> stageRoot =
+                    finalizedStageSub.from(sy.gov.sla.litigationregistration.domain.CaseStage.class);
+            finalizedStageSub.select(cb.literal(1L)).where(
+                    cb.equal(stageRoot.get("litigationCaseId"), root.get("id")),
+                    cb.equal(stageRoot.get("stageStatus"), StageStatus.FINALIZED));
+
+            return cb.and(notClosed, cb.not(cb.exists(finalizedStageSub)));
+        };
     }
 
     /**

@@ -25,6 +25,7 @@ import { Modal } from '@/shared/ui/Modal';
 import { extractApiErrorMessage } from '@/shared/lib/apiError';
 import {
   DECISION_TYPE_LABEL_AR,
+  stageSimpleStatus,
   STAGE_STATUS_LABEL_AR,
   STAGE_TYPE_LABEL_AR,
   type DecisionType,
@@ -113,7 +114,7 @@ export function StageDetailPage() {
             )}
             {progQ.data && (
               <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-                <Field k="حالة المرحلة" v={STAGE_STATUS_LABEL_AR[progQ.data.latestStageStatus]} />
+                <Field k="حالة الدعوى" v={stageSimpleStatus(progQ.data.latestStageStatus)} />
                 <Field k="جلسة سابقة"  v={progQ.data.previousHearingDate ?? '—'} />
                 <Field k="سبب التأجيل السابق" v={progQ.data.previousPostponementReasonLabel ?? '—'} />
                 <Field k="جلسة حالية"  v={progQ.data.currentHearingDate ?? '—'} />
@@ -357,8 +358,13 @@ function FinalizeModal({
             <Input type="number" step="0.01" min="0" {...register('adjudgedAmount')} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">العملة (3 أحرف)</label>
-            <Input maxLength={3} placeholder="SYP" {...register('currencyCode')} />
+            <label className="mb-1 block text-sm font-medium text-slate-700">العملة</label>
+            <Select {...register('currencyCode')}>
+              <option value="">—</option>
+              <option value="SYP">ل.س (SYP)</option>
+              <option value="USD">دولار (USD)</option>
+              <option value="EUR">يورو (EUR)</option>
+            </Select>
             {errors.currencyCode && <p className="mt-1 text-xs text-red-600">{errors.currencyCode.message}</p>}
           </div>
         </div>

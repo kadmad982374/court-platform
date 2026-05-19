@@ -15,5 +15,12 @@ public interface ExecutionStepRepository extends JpaRepository<ExecutionStep, Lo
     List<ExecutionStep> findByExecutionFileIdOrderByStepDateAscIdAsc(Long executionFileId);
 
     long countByExecutionFileId(Long executionFileId);
+
+    /**
+     * Customer feedback round-3 — the execution file's "الحالة" badge mirrors
+     * the most-recent step's type. Sort by step_date then id so two steps on
+     * the same day deterministically pick the one entered last.
+     */
+    java.util.Optional<ExecutionStep> findFirstByExecutionFileIdOrderByStepDateDescIdDesc(Long executionFileId);
 }
 
