@@ -170,7 +170,11 @@
       "Bash(powershell *)",
       "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d['departmentMemberships'], indent=2, ensure_ascii=False\\)\\)\")",
       "Bash(python -m json.tool)",
-      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('latestStepType =', d.get\\('latestStepType'\\)\\); print\\('status =', d.get\\('status'\\)\\)\")"
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('latestStepType =', d.get\\('latestStepType'\\)\\); print\\('status =', d.get\\('status'\\)\\)\")",
+      "Bash(where javac *)",
+      "Bash(\"/c/Program Files/Common Files/Oracle/Java/javapath/java.exe\" -version)",
+      "Bash(JAVA_HOME='C:\\\\Program Files\\\\Java\\\\jdk-21.0.11' mvn -q -DskipTests=false -Dit.test='ExecutionApiIT#test4and5_listAndGetRespectScope' -Dsurefire.failIfNoSpecifiedTests=false failsafe:integration-test)",
+      "Bash(JAVA_HOME='C:\\\\Program Files\\\\Java\\\\jdk-21.0.11' mvn -q test-compile)"
     ]
   }
 }

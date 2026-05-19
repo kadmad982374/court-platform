@@ -237,15 +237,19 @@ class ExecutionApiIT extends AbstractIntegrationTest {
         mvc.perform(get("/api/v1/execution-files/" + efId)
                 .header("Authorization", "Bearer " + headTok)).andExpect(status().isOk());
 
-        // section head في فرع آخر لا يرى الملف في القائمة
-        var otherList = mvc.perform(get("/api/v1/execution-files?year=2026")
-                .header("Authorization", "Bearer " + otherHeadTok)).andExpect(status().isOk()).andReturn();
-        for (JsonNode n : om.readTree(otherList.getResponse().getContentAsString()))
-            assertThat(n.get("id").asLong()).isNotEqualTo(efId);
+        // Customer feedback round-3 — a section head whose membership is NOT
+        // in an EXECUTION department gets an explicit NO_EXECUTION_ACCESS 403
+        // on both list and get (used to silently return an empty list). The
+        // other-branch head here only has a FIRST_INSTANCE membership, so:
+        mvc.perform(get("/api/v1/execution-files?year=2026")
+                .header("Authorization", "Bearer " + otherHeadTok))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("NO_EXECUTION_ACCESS"));
 
-        // GET single من فرع آخر: 403
         mvc.perform(get("/api/v1/execution-files/" + efId)
-                .header("Authorization", "Bearer " + otherHeadTok)).andExpect(status().isForbidden());
+                .header("Authorization", "Bearer " + otherHeadTok))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("NO_EXECUTION_ACCESS"));
     }
 
     // ===== 6 + 7) addStep success + ordering =====
