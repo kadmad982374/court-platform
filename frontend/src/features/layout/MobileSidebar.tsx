@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
-import { visibleItems } from '@/features/navigation/navItems';
+import { visibleItemsForUser } from '@/features/navigation/navItems';
 import { cn } from '@/shared/lib/cn';
 import { useMemo } from 'react';
 
@@ -18,7 +18,7 @@ interface MobileSidebarProps {
 export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
   const { user } = useAuth();
   const location = useLocation();
-  const items = useMemo(() => visibleItems(user?.roles ?? []), [user]);
+  const items = useMemo(() => visibleItemsForUser(user), [user]);
 
   // Group by section (same logic as desktop Sidebar).
   const grouped = useMemo(() => {

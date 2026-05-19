@@ -47,6 +47,14 @@ export async function getCase(id: number): Promise<LitigationCase> {
   return r.data;
 }
 
+/**
+ * Customer feedback round-3 — admin-only hard delete. Backend enforces
+ * the CENTRAL_SUPERVISOR gate and cascades child rows.
+ */
+export async function deleteCase(id: number): Promise<void> {
+  await http.delete(`/cases/${id}`);
+}
+
 export async function listCaseStages(id: number): Promise<CaseStage[]> {
   const r = await http.get<CaseStage[]>(`/cases/${id}/stages`);
   return r.data;

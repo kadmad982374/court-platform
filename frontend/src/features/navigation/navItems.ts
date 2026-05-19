@@ -1,4 +1,5 @@
-import { ALL_ROLES, type RoleCode } from '@/shared/types/domain';
+import { ALL_ROLES, type CurrentUser, type RoleCode } from '@/shared/types/domain';
+import { canViewExecution } from '@/features/auth/permissions';
 
 export interface NavItem {
   /** React Router path. */
@@ -9,6 +10,13 @@ export interface NavItem {
   allowedRoles: readonly RoleCode[];
   /** Optional grouping; rendered as a section header. */
   section?: string;
+  /**
+   * Optional finer-grained gate evaluated AFTER the role check. Used when
+   * role alone is too coarse — e.g. to hide the execution-files entries
+   * for SECTION_HEADs whose section is not EXECUTION (customer feedback
+   * round-3).
+   */
+  visible?: (user: CurrentUser | null) => boolean;
 }
 
 /**
@@ -27,12 +35,16 @@ export const NAV_ITEMS: NavItem[] = [
   // D-021/D-025/D-031: backend enforces scope; UI shows what server returns.
   { to: '/cases',             label: 'الدعاوى',     allowedRoles: ALL_ROLES, section: 'الأعمال' },
   { to: '/resolved-register', label: 'سجل الفصل',  allowedRoles: ALL_ROLES, section: 'الأعمال' },
-  { to: '/execution-files',   label: 'التنفيذ',     allowedRoles: ALL_ROLES, section: 'الأعمال' },
+  // Customer feedback round-3: hide execution entries for users that have no
+  // path into the execution module (e.g. SECTION_HEAD of FIRST_INSTANCE).
+  // Backend re-validates with NO_EXECUTION_ACCESS.
+  { to: '/execution-files',   label: 'التنفيذ',     allowedRoles: ALL_ROLES, section: 'الأعمال',
+    visible: canViewExecution },
   // PR-12 (customer feedback E-3): "الملفات المنفّذة" — execution files whose
   // execution is fully done (status=CLOSED). Backed by the same page; the
   // status query-string drives the view.
   { to: '/execution-files?status=CLOSED', label: 'الملفات المنفّذة',
-    allowedRoles: ALL_ROLES, section: 'الأعمال' },
+    allowedRoles: ALL_ROLES, section: 'الأعمال', visible: canViewExecution },
 
   // ---- Knowledge directory (Phase 7 read-only modules, D-042) ----
   { to: '/legal-library',   label: 'المكتبة القانونية', allowedRoles: ALL_ROLES, section: 'مرجعيات' },
@@ -59,10 +71,31 @@ export const NAV_ITEMS: NavItem[] = [
     allowedRoles: ['CENTRAL_SUPERVISOR'], section: 'الإدارة' },
 ];
 
-/** Filter nav items by the current user's roles. */
+/**
+ * Filter nav items by the current user's roles. Kept for backwards
+ * compatibility with the existing test suite — callers that have a full
+ * `CurrentUser` object should prefer {@link visibleItemsForUser} so that
+ * predicate-based gates (e.g. `canViewExecution`) are also applied.
+ */
 export function visibleItems(userRoles: RoleCode[]): NavItem[] {
   return NAV_ITEMS.filter((it) => {
     if (it.allowedRoles.length === 0) return true;
     return it.allowedRoles.some((r) => userRoles.includes(r));
+  });
+}
+
+/**
+ * Filter nav items by both the role list AND any per-user predicate. This
+ * is the version Sidebar / MobileSidebar should call so that visibility can
+ * key off membership shape (e.g. "is this user in an EXECUTION dept?").
+ */
+export function visibleItemsForUser(user: CurrentUser | null): NavItem[] {
+  const roles = user?.roles ?? [];
+  return NAV_ITEMS.filter((it) => {
+    const roleOk = it.allowedRoles.length === 0
+        || it.allowedRoles.some((r) => roles.includes(r));
+    if (!roleOk) return false;
+    if (it.visible && !it.visible(user)) return false;
+    return true;
   });
 }

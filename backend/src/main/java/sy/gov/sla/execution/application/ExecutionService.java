@@ -34,7 +34,9 @@ import sy.gov.sla.litigationregistration.application.CaseStagePort.PromoteToExec
 import sy.gov.sla.litigationregistration.domain.LifecycleStatus;
 import sy.gov.sla.litigationregistration.domain.StageStatus;
 import sy.gov.sla.organization.application.OrganizationService;
+import sy.gov.sla.organization.domain.Department;
 import sy.gov.sla.organization.domain.DepartmentType;
+import sy.gov.sla.organization.infrastructure.DepartmentRepository;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -62,6 +64,7 @@ public class ExecutionService {
     private final AuthorizationService authorizationService;
     private final OrganizationService organizationService;
     private final UserRepository userRepository;
+    private final DepartmentRepository departmentRepo;
     private final ApplicationEventPublisher events;
 
     // ========== Promote-to-execution ==========
@@ -155,6 +158,10 @@ public class ExecutionService {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
         AuthorizationContext ctx = authorizationService.loadContext(actorUserId);
+        // Customer feedback round-3: a section head whose section is NOT
+        // EXECUTION must get a clear "no permission" response — not a silent
+        // empty list. Block before building the scope/spec.
+        requireExecutionAccess(ctx);
         ExecutionScope scope = ExecutionScope.from(ctx);
 
         // PR-12 (customer feedback E-2 / Q-A): "region" = court. Cross-module
@@ -212,12 +219,48 @@ public class ExecutionService {
     }
 
     private void requireFileReadAccess(ExecutionFile ef, AuthorizationContext ctx) {
+        // Customer feedback round-3: deny upfront for users with no execution
+        // path at all (e.g. SECTION_HEAD of FIRST_INSTANCE) so the message is
+        // explicit rather than a generic "outside scope".
+        requireExecutionAccess(ctx);
         ExecutionScope scope = ExecutionScope.from(ctx);
         if (scope.matches(ef.getBranchId(), ef.getDepartmentId(), ef.getAssignedUserId())) return;
         var caseInfo = caseStagePort.findCaseWithCurrentStage(ef.getLitigationCaseId()).orElse(null);
         if (caseInfo != null && authorizationService.canReadCase(ctx,
                 caseInfo.branchId(), caseInfo.departmentId(), caseInfo.currentOwnerUserId())) return;
         throw new ForbiddenException("Execution file is outside actor read scope");
+    }
+
+    /**
+     * Customer feedback round-3 — explicit execution-area gate.
+     *
+     * Allowed:
+     *  - Supervisors (CENTRAL / READ_ONLY / SPECIAL).
+     *  - BRANCH_HEAD (sees the branch's execution files).
+     *  - SECTION_HEAD / ADMIN_CLERK whose membership lives in a department
+     *    of type EXECUTION.
+     *  - STATE_LAWYER (sees files where assigned_user_id == self).
+     *
+     * Otherwise throws {@code NO_EXECUTION_ACCESS} so the frontend can show
+     * the Arabic "ليس لديك صلاحية لاستعراض ملفات التنفيذ" message instead of
+     * a misleading empty list.
+     */
+    private void requireExecutionAccess(AuthorizationContext ctx) {
+        if (ctx.isCentralSupervisor() || ctx.isReadOnlySupervisor() || ctx.isSpecialInspector()) return;
+        if (!ctx.headOfBranches().isEmpty()) return;
+        if (ctx.isStateLawyer()) return;
+        var execDeptIds = ctx.departmentMemberships().stream()
+                .filter(m -> m.active() && m.departmentId() != null)
+                .map(m -> m.departmentId())
+                .distinct()
+                .toList();
+        if (!execDeptIds.isEmpty()) {
+            for (Department d : departmentRepo.findAllById(execDeptIds)) {
+                if (d.getType() == DepartmentType.EXECUTION) return;
+            }
+        }
+        throw new ForbiddenException("NO_EXECUTION_ACCESS",
+                "ليس لديك صلاحية لاستعراض ملفات التنفيذ");
     }
 
     // ========== Steps: add (append-only) + list ==========

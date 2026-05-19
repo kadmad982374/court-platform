@@ -20,9 +20,12 @@ import sy.gov.sla.identity.api.AssignableLawyerDto;
 import sy.gov.sla.identity.api.CurrentUserDto;
 import sy.gov.sla.identity.domain.User;
 import sy.gov.sla.identity.infrastructure.UserRepository;
+import sy.gov.sla.organization.infrastructure.DepartmentRepository;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +38,7 @@ public class UserQueryService {
     private final UserDepartmentMembershipRepository membershipRepo;
     private final UserCourtAccessRepository courtAccessRepo;
     private final UserDelegatedPermissionRepository delegatedRepo;
+    private final DepartmentRepository departmentRepo;
     private final AuthorizationService authorizationService;
 
     public CurrentUserDto getCurrentUser(Long userId) {
@@ -46,9 +50,19 @@ public class UserQueryService {
                 .filter(java.util.Objects::nonNull)
                 .toList();
 
-        List<DepartmentMembershipDto> memberships = membershipRepo.findByUserId(userId).stream()
+        var rows = membershipRepo.findByUserId(userId);
+        var deptTypeById = rows.stream()
+                .map(m -> m.getDepartmentId())
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toMap(
+                        id -> id,
+                        id -> departmentRepo.findById(id).map(d -> d.getType()).orElse(null)));
+        List<DepartmentMembershipDto> memberships = rows.stream()
                 .map(m -> new DepartmentMembershipDto(m.getId(), m.getUserId(), m.getBranchId(),
-                        m.getDepartmentId(), m.getMembershipType(), m.isPrimary(), m.isActive()))
+                        m.getDepartmentId(),
+                        m.getDepartmentId() == null ? null : deptTypeById.get(m.getDepartmentId()),
+                        m.getMembershipType(), m.isPrimary(), m.isActive()))
                 .toList();
 
         List<CourtAccessDto> courts = courtAccessRepo.findByUserId(userId).stream()

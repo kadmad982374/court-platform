@@ -111,6 +111,14 @@ export interface DepartmentMembership {
   userId: number;
   branchId: number;
   departmentId: number | null;
+  /**
+   * Type of the linked department (CONCILIATION / FIRST_INSTANCE / APPEAL /
+   * EXECUTION); null for branch-scoped memberships. Defined further down in
+   * this file (see `DepartmentType`). Optional in fixtures — production
+   * responses from /auth/me always include it; used by `canViewExecution`
+   * to gate the execution-files UI for non-EXECUTION section heads.
+   */
+  departmentType?: DepartmentType | null;
   membershipType: MembershipType;
   primary: boolean;
   active: boolean;

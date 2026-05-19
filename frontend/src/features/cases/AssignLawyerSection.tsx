@@ -82,6 +82,10 @@ export function AssignLawyerSection({ litigationCase }: Props) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['cases', litigationCase.id] });
       void qc.invalidateQueries({ queryKey: ['cases', litigationCase.id, 'stages'] });
+      // Also refresh any cases-list query (matches ['cases', { ...filters }])
+      // so the newly-assigned lawyer's "my cases" view picks up the case without
+      // requiring a manual refresh.
+      void qc.invalidateQueries({ queryKey: ['cases'] });
       setPickedId('');
     },
   });

@@ -47,7 +47,13 @@ public class DevSeedRunner {
             "db/migration/V20__dev_seed_test_users.sql",
             "db/migration/V21__dev_seed_assign_lawyer.sql",
             "db/migration/V22__demo_seed_data.sql",
-            "db/migration/V23__repair_dev_seed_role_links.sql"
+            "db/migration/V23__repair_dev_seed_role_links.sql",
+            // V34 seeds the EXECUTION-section users (section_exec_dam / clerk_exec_dam)
+            // so the customer-feedback round-3 scoping rule is demoable end-to-end.
+            // Flyway runs V34 BEFORE the BootstrapAdminRunner has created `admin`,
+            // so the migration bails silently on first boot — this runner re-applies
+            // it once `admin` exists. The script is idempotent.
+            "db/migration/V34__seed_execution_section_users_and_repair.sql"
     );
 
     @Bean

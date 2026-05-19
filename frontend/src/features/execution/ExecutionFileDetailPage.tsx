@@ -13,6 +13,7 @@ import { useAuth } from '@/features/auth/AuthContext';
 import {
   canAddExecutionStep,
   canUploadExecutionFileAttachment,
+  canViewExecution,
   canViewExecutionSteps,
 } from '@/features/auth/permissions';
 import { AttachmentsSection } from '@/features/attachments/AttachmentsSection';
@@ -37,12 +38,32 @@ export function ExecutionFileDetailPage() {
   const id = Number(params.id);
   const qc = useQueryClient();
   const { user } = useAuth();
+  const allowed = canViewExecution(user);
 
   const fileQ = useQuery({
     queryKey: ['execution-files', id],
     queryFn: () => getExecutionFile(id),
-    enabled: Number.isFinite(id),
+    enabled: Number.isFinite(id) && allowed,
   });
+
+  if (!allowed) {
+    return (
+      <>
+        <PageHeader title="ملف التنفيذ" />
+        <Card>
+          <CardBody>
+            <p
+              role="alert"
+              data-testid="execution-no-permission"
+              className="rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+            >
+              ليس لديك صلاحية لاستعراض ملفات التنفيذ.
+            </p>
+          </CardBody>
+        </Card>
+      </>
+    );
+  }
 
   // PR-12 (C-7 / D-2): only the assigned lawyer or supervisors can SEE the
   // step timeline; managers see file rows only. Skip the request entirely

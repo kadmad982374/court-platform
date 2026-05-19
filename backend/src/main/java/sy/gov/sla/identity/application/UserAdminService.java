@@ -313,9 +313,19 @@ public class UserAdminService {
 
     private UserAdminDto toAdminDto(User u) {
         Long uid = u.getId();
-        List<DepartmentMembershipDto> memberships = membershipRepo.findByUserId(uid).stream()
+        var rows = membershipRepo.findByUserId(uid);
+        var deptTypeById = rows.stream()
+                .map(m -> m.getDepartmentId())
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toMap(
+                        id -> id,
+                        id -> departmentRepo.findById(id).map(d -> d.getType()).orElse(null)));
+        List<DepartmentMembershipDto> memberships = rows.stream()
                 .map(m -> new DepartmentMembershipDto(m.getId(), m.getUserId(), m.getBranchId(),
-                        m.getDepartmentId(), m.getMembershipType(), m.isPrimary(), m.isActive()))
+                        m.getDepartmentId(),
+                        m.getDepartmentId() == null ? null : deptTypeById.get(m.getDepartmentId()),
+                        m.getMembershipType(), m.isPrimary(), m.isActive()))
                 .toList();
         List<DelegatedPermissionDto> delegated = delegatedRepo.findByUserId(uid).stream()
                 .map(p -> new DelegatedPermissionDto(p.getId(), p.getUserId(), p.getPermissionCode(),

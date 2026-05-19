@@ -143,7 +143,32 @@
       "Bash(taskkill //F //PID 17548)",
       "Bash(cp \"C:/Users/FAD/IdeaProjects/order-sys org/infrastructure/Hetzner/temp-infra/.secrets/fadi_ed25519\" /tmp/fadi_ed25519)",
       "Bash(chmod 600 /tmp/fadi_ed25519)",
-      "Bash(\"C:/Program Files/Java/jdk-21.0.11/bin/jar.exe\" tf C:/Users/FAD/IdeaProjects/lawyer/court-platform/backend/target/state-litigation-backend.jar)"
+      "Bash(\"C:/Program Files/Java/jdk-21.0.11/bin/jar.exe\" tf C:/Users/FAD/IdeaProjects/lawyer/court-platform/backend/target/state-litigation-backend.jar)",
+      "Bash(curl -s -i -X POST http://localhost:8080/api/v1/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"admin\",\"password\":\"ChangeMe!2026\"}')",
+      "Bash(echo \"tsc-exit=$?\")",
+      "Bash(curl -s -i -X POST http://localhost:8080/api/v1/auth/login -H \"Content-Type: application/json\" -H \"Origin: http://localhost:5173\" -d '{\"username\":\"admin\",\"password\":\"ChangeMe!2026\"}')",
+      "Bash(awk '{print $5}')",
+      "Bash(taskkill //F //PID 24544)",
+      "Bash(npm --version)",
+      "Bash(/c/Program Files/Docker/Docker/Docker Desktop.exe *)",
+      "Bash(where java *)",
+      "Bash(where psql *)",
+      "Bash(PGPASSWORD=postgres psql -U postgres -h localhost -lqt)",
+      "Bash(PGPASSWORD=DemoPass2026! psql *)",
+      "Bash(psql -U postgres -h localhost -lqt)",
+      "Bash(PGPASSWORD=postgres psql -U postgres -h localhost -d postgres -c \"SELECT 1\")",
+      "Bash(PGPASSWORD=admin psql -U postgres -h localhost -d postgres -c \"SELECT 1\")",
+      "Bash(curl *)",
+      "Bash(grep -rh \"\\\\.de\\\\|\\\\.com\\\\|\\\\b\\\\\\([0-9]\\\\{1,3\\\\}\\\\.\\\\\\)\\\\{3\\\\}[0-9]\\\\{1,3\\\\}\\\\b\" \"/c/Users/FAD/IdeaProjects/order-sys org/infrastructure/Hetzner/temp-infra/config/\")",
+      "Bash(cp '/c/Users/FAD/IdeaProjects/order-sys org/infrastructure/Hetzner/temp-infra/.secrets/fadi_ed25519' /tmp/fadi_key)",
+      "Bash(chmod 600 /tmp/fadi_key)",
+      "Bash(grep -E \"^\\\\.env|env\\\\$|\\\\.env\\\\b\" .gitignore ../.gitignore)",
+      "Bash(export JAVA_HOME)",
+      "Bash(JAVA_HOME=\"C:\\\\\\\\Program Files\\\\\\\\Java\\\\\\\\jdk-21.0.11\" mvn -B -q -DskipTests compile)",
+      "Bash(JAVA_HOME=\"C:\\\\\\\\Program Files\\\\\\\\Java\\\\\\\\jdk-21.0.11\" mvn -B -q -Dtest='AttachmentsRemindersNotificationsIT' -Dsurefire.failIfNoSpecifiedTests=false test -pl .)",
+      "Bash(echo \"be_exit=$?\")",
+      "Bash(powershell *)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d['departmentMemberships'], indent=2, ensure_ascii=False\\)\\)\")"
     ]
   }
 }

@@ -5,6 +5,7 @@
 // their own notifications and only the recipient may mark them as read.
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { listNotifications, markNotificationRead } from './api';
 import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card';
@@ -16,8 +17,29 @@ import { cn } from '@/shared/lib/cn';
 
 const PAGE_SIZE = 20;
 
+interface NotificationTarget {
+  /** Router path to open. */
+  path: string;
+  /** Arabic action label, e.g. "فتح الدعوى". */
+  label: string;
+}
+
+function notificationTarget(
+  relatedEntityType: string | null | undefined,
+  relatedEntityId: number | null | undefined,
+): NotificationTarget | null {
+  if (!relatedEntityType || relatedEntityId == null) return null;
+  switch (relatedEntityType) {
+    case 'LITIGATION_CASE': return { path: `/cases/${relatedEntityId}`,           label: 'فتح الدعوى' };
+    case 'CASE_STAGE':      return { path: `/stages/${relatedEntityId}`,          label: 'فتح المرحلة' };
+    case 'EXECUTION_FILE':  return { path: `/execution-files/${relatedEntityId}`, label: 'فتح ملف التنفيذ' };
+    default: return null;
+  }
+}
+
 export function NotificationsPage() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [page, setPage] = useState(0);
 
   const queryKey = ['notifications', { page, size: PAGE_SIZE }] as const;
@@ -66,7 +88,14 @@ export function NotificationsPage() {
 
           {data.length > 0 && (
             <ul className="divide-y divide-slate-100">
-              {data.map((n) => (
+              {data.map((n) => {
+                const target = notificationTarget(n.relatedEntityType, n.relatedEntityId);
+                const openTarget = () => {
+                  if (!target) return;
+                  if (!n.read) markMut.mutate(n.id);
+                  navigate(target.path);
+                };
+                return (
                 <li
                   key={n.id}
                   className={cn(
@@ -82,14 +111,25 @@ export function NotificationsPage() {
                           className="inline-block h-2 w-2 rounded-full bg-brand-600"
                         />
                       )}
-                      <h3 className="text-sm font-semibold text-slate-800">{n.title}</h3>
+                      {target ? (
+                        <button
+                          type="button"
+                          onClick={openTarget}
+                          className="text-sm font-semibold text-brand-700 hover:underline focus:outline-none focus:ring-2 focus:ring-brand-400 rounded"
+                          data-testid="notification-open"
+                        >
+                          {n.title}
+                        </button>
+                      ) : (
+                        <h3 className="text-sm font-semibold text-slate-800">{n.title}</h3>
+                      )}
                       <span className="text-xs text-slate-400">[{n.notificationType}]</span>
                     </div>
                     <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{n.body}</p>
                     <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-slate-500">
                       <span>أُنشئ: {n.createdAt}</span>
                       {n.readAt && <span>قُرئ: {n.readAt}</span>}
-                      {n.relatedEntityType && (
+                      {n.relatedEntityType && !target && (
                         <span>
                           مرتبط بـ {n.relatedEntityType}
                           {n.relatedEntityId != null && ` #${n.relatedEntityId}`}
@@ -97,7 +137,17 @@ export function NotificationsPage() {
                       )}
                     </div>
                   </div>
-                  <div className="shrink-0">
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    {target && (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={openTarget}
+                        data-testid="notification-open-action"
+                      >
+                        {target.label}
+                      </Button>
+                    )}
                     {!n.read ? (
                       <Button
                         size="sm"
@@ -112,7 +162,8 @@ export function NotificationsPage() {
                     )}
                   </div>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
 

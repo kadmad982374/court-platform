@@ -79,5 +79,18 @@ public class CasesController {
         Long actor = SecurityUtils.currentUserOrThrow().userId();
         return service.correctFinalizedCase(id, req, actor);
     }
+
+    /**
+     * Customer feedback round-3 — admin-only hard delete of a case and
+     * all its child rows (stages, hearings, decisions, execution files,
+     * steps, attachments, reminders, related notifications). Authorization
+     * is enforced server-side: any non-CENTRAL_SUPERVISOR caller gets 403.
+     */
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable("id") Long id) {
+        Long actor = SecurityUtils.currentUserOrThrow().userId();
+        service.deleteCase(id, actor);
+    }
 }
 

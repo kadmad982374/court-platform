@@ -10,6 +10,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sy.gov.sla.access.application.AuthorizationContext;
@@ -48,6 +49,7 @@ public class LitigationCaseService {
     private final AuthorizationService authorizationService;
     private final ApplicationEventPublisher events;
     private final UserRepository userRepo;
+    private final JdbcTemplate jdbc;
 
     // ========== Create ==========
 
@@ -114,6 +116,85 @@ public class LitigationCaseService {
                 lc.getCurrentOwnerUserId());
 
         return toDto(lc, List.of(stage));
+    }
+
+    // ========== Delete ==========
+
+    /**
+     * Customer feedback round-3 — hard-delete a case and everything that
+     * hangs off it. Reserved to {@code CENTRAL_SUPERVISOR} (the platform
+     * admin); any other actor receives 403.
+     *
+     * <p>Order matters because we don't have ON DELETE CASCADE on the FKs:
+     * <ol>
+     *   <li>break the case ↔ stage cycle by nulling {@code current_stage_id};</li>
+     *   <li>delete attachments / steps / files / hearings / decisions that
+     *       hang off the case's stages and execution files;</li>
+     *   <li>delete reminders + notifications referencing the case;</li>
+     *   <li>delete the stages, then the case row itself.</li>
+     * </ol>
+     */
+    public void deleteCase(Long caseId, Long actorUserId) {
+        LitigationCase lc = caseRepo.findById(caseId)
+                .orElseThrow(() -> new NotFoundException("Case not found: " + caseId));
+
+        AuthorizationContext actor = authorizationService.loadContext(actorUserId);
+        if (!actor.isCentralSupervisor()) {
+            throw new ForbiddenException("ADMIN_ONLY",
+                    "حذف الدعاوى متاح للمشرف المركزي فقط");
+        }
+
+        // 1) Break the case↔stage cycle so DELETE FROM case_stages is allowed.
+        jdbc.update("UPDATE litigation_cases SET current_stage_id = NULL WHERE id = ?", caseId);
+
+        // 2) Stage-scoped children (hearing entries, decisions, stage attachments).
+        jdbc.update(
+                "DELETE FROM hearing_progression_entries "
+              + " WHERE case_stage_id IN (SELECT id FROM case_stages WHERE litigation_case_id = ?)",
+                caseId);
+        jdbc.update(
+                "DELETE FROM case_decisions "
+              + " WHERE case_stage_id IN (SELECT id FROM case_stages WHERE litigation_case_id = ?)",
+                caseId);
+        jdbc.update(
+                "DELETE FROM attachments "
+              + " WHERE attachment_scope_type = 'CASE_STAGE' "
+              + "   AND scope_id IN (SELECT id FROM case_stages WHERE litigation_case_id = ?)",
+                caseId);
+
+        // 3) Execution side: steps (+ their attachments), file attachments, files.
+        jdbc.update(
+                "DELETE FROM attachments "
+              + " WHERE attachment_scope_type = 'EXECUTION_STEP' "
+              + "   AND scope_id IN ("
+              + "       SELECT s.id FROM execution_steps s"
+              + "         JOIN execution_files f ON f.id = s.execution_file_id"
+              + "        WHERE f.litigation_case_id = ?)",
+                caseId);
+        jdbc.update(
+                "DELETE FROM execution_steps "
+              + " WHERE execution_file_id IN (SELECT id FROM execution_files WHERE litigation_case_id = ?)",
+                caseId);
+        jdbc.update(
+                "DELETE FROM attachments "
+              + " WHERE attachment_scope_type = 'EXECUTION_FILE' "
+              + "   AND scope_id IN (SELECT id FROM execution_files WHERE litigation_case_id = ?)",
+                caseId);
+        jdbc.update("DELETE FROM execution_files WHERE litigation_case_id = ?", caseId);
+
+        // 4) Reminders + case-targeted notifications.
+        jdbc.update("DELETE FROM reminders WHERE litigation_case_id = ?", caseId);
+        jdbc.update(
+                "DELETE FROM notifications "
+              + " WHERE related_entity_type = 'LITIGATION_CASE' AND related_entity_id = ?",
+                caseId);
+
+        // 5) Stages, then the case.
+        jdbc.update("DELETE FROM case_stages WHERE litigation_case_id = ?", caseId);
+        jdbc.update("DELETE FROM litigation_cases WHERE id = ?", caseId);
+
+        UserActionLog.action("admin deleted case #{} (basis={}/{})",
+                caseId, lc.getOriginalBasisNumber(), lc.getBasisYear());
     }
 
     // ========== Read ==========

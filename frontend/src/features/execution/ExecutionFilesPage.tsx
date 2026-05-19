@@ -16,7 +16,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { listExecutionFiles, type ListExecutionFilesQuery } from './api';
 import { useAuth } from '@/features/auth/AuthContext';
-import { hasRole } from '@/features/auth/permissions';
+import { canViewExecution, hasRole } from '@/features/auth/permissions';
 import { listBranches, listCourts } from '@/shared/api/lookups';
 import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { PageHeader } from '@/shared/ui/PageHeader';
@@ -66,6 +66,29 @@ export function ExecutionFilesPage() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const mode = useMemo(() => detectMode(user), [user]);
+  const allowed = canViewExecution(user);
+
+  if (!allowed) {
+    // Customer feedback round-3: a section head whose section is not
+    // EXECUTION must see an explicit "no permission" message — not an
+    // empty/confusing list. Backend re-validates with NO_EXECUTION_ACCESS.
+    return (
+      <>
+        <PageHeader title="ملفات التنفيذ" />
+        <Card>
+          <CardBody>
+            <p
+              role="alert"
+              data-testid="execution-no-permission"
+              className="rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+            >
+              ليس لديك صلاحية لاستعراض ملفات التنفيذ.
+            </p>
+          </CardBody>
+        </Card>
+      </>
+    );
+  }
 
   // E-3: ?status=CLOSED arrives from the "Executed Files" sidebar entry.
   const initialStatus = searchParams.get('status') as ExecutionFileStatus | null;

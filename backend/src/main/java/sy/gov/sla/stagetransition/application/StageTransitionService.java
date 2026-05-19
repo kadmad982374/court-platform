@@ -39,11 +39,13 @@ public class StageTransitionService {
         var info = caseStagePort.findCaseWithCurrentStage(caseId)
                 .orElseThrow(() -> new NotFoundException("Case not found: " + caseId));
 
-        // D-026 — القيود الخمسة فقط، لا قيد على decisionType.
-        if (info.currentStageStatus() != StageStatus.FINALIZED) {
-            throw new BadRequestException("STAGE_NOT_FINALIZED",
-                    "Current stage must be FINALIZED before promoting to appeal");
-        }
+        // Customer feedback round-3: the "current stage must be FINALIZED"
+        // pre-condition was removed at the client's request — they want to be
+        // able to push a case to appeal at any time, without waiting for the
+        // FI stage to be finalized first. The remaining guards (already-an-
+        // appeal stage, read-only, lifecycle) still apply. (Note: only the
+        // appeal transition was relaxed. promote-to-conciliation and
+        // promote-to-execution still require FINALIZED.)
         if (info.currentStageType() == StageType.APPEAL) {
             throw new BadRequestException("ALREADY_APPEAL_STAGE",
                     "Current stage is already an APPEAL stage; no higher court available");

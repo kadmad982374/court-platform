@@ -323,6 +323,41 @@ export function canBroadcastNotification(user: CurrentUser | null): boolean {
 }
 
 /**
+ * Customer feedback round-3 — admin-only "delete case" gate. Reserved
+ * to CENTRAL_SUPERVISOR; backend re-validates and 403s any other actor.
+ */
+export function canDeleteCase(user: CurrentUser | null): boolean {
+  return hasRole(user, 'CENTRAL_SUPERVISOR');
+}
+
+/**
+ * Customer feedback round-3 — execution-area visibility gate.
+ *
+ * Mirrors the backend rule (ExecutionService.requireExecutionAccess): a user
+ * can see execution files only if they are a supervisor, a BRANCH_HEAD, a
+ * STATE_LAWYER, or a SECTION_HEAD / ADMIN_CLERK whose membership is in a
+ * department of type EXECUTION. A FIRST_INSTANCE section head, for example,
+ * gets false here — the page renders an explicit "no permission" message
+ * instead of an empty/confusing list. Backend re-validates regardless.
+ */
+export function canViewExecution(user: CurrentUser | null): boolean {
+  if (!user) return false;
+  if (hasAnyRole(user, [
+    'CENTRAL_SUPERVISOR', 'READ_ONLY_SUPERVISOR', 'SPECIAL_INSPECTOR',
+  ])) return true;
+  const isBranchHead = user.departmentMemberships.some(
+    (m) => m.active && m.membershipType === 'BRANCH_HEAD',
+  );
+  if (isBranchHead) return true;
+  if (hasRole(user, 'STATE_LAWYER')) return true;
+  return user.departmentMemberships.some(
+    (m) => m.active
+        && m.departmentType === 'EXECUTION'
+        && (m.membershipType === 'SECTION_HEAD' || m.membershipType === 'ADMIN_CLERK'),
+  );
+}
+
+/**
  * UI sub-phase B — `/admin/users` minimal.
  *
  * Visual-only gate for the `/admin/users` route + sidebar entry.

@@ -12,6 +12,7 @@ import sy.gov.sla.common.exception.NotFoundException;
 import sy.gov.sla.identity.infrastructure.UserRepository;
 import sy.gov.sla.organization.domain.Court;
 import sy.gov.sla.organization.infrastructure.CourtRepository;
+import sy.gov.sla.organization.infrastructure.DepartmentRepository;
 
 import java.time.Instant;
 import java.util.*;
@@ -26,6 +27,7 @@ public class AccessControlService {
     private final UserCourtAccessRepository courtAccessRepo;
     private final UserDelegatedPermissionRepository delegatedRepo;
     private final CourtRepository courtRepository;
+    private final DepartmentRepository departmentRepo;
     private final AuthorizationService authorizationService;
 
     @Transactional(readOnly = true)
@@ -43,9 +45,15 @@ public class AccessControlService {
             if (!canSee) throw new ForbiddenException("Cannot read this user's memberships");
         }
         return membershipRepo.findByUserId(userId).stream()
-                .map(m -> new DepartmentMembershipDto(
-                        m.getId(), m.getUserId(), m.getBranchId(), m.getDepartmentId(),
-                        m.getMembershipType(), m.isPrimary(), m.isActive()))
+                .map(m -> {
+                    var deptType = m.getDepartmentId() == null
+                            ? null
+                            : departmentRepo.findById(m.getDepartmentId())
+                                    .map(d -> d.getType()).orElse(null);
+                    return new DepartmentMembershipDto(
+                            m.getId(), m.getUserId(), m.getBranchId(), m.getDepartmentId(),
+                            deptType, m.getMembershipType(), m.isPrimary(), m.isActive());
+                })
                 .toList();
     }
 

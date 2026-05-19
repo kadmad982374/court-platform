@@ -113,12 +113,14 @@ BEGIN
              original_basis_number, basis_year, original_registration_date,
              created_branch_id, created_department_id, created_court_id,
              current_stage_id, current_owner_user_id, lifecycle_status,
+             court_type,
              created_by_user_id, created_at, updated_at)
         VALUES
             ('وزارة المالية', 'PLAINTIFF', 'شركة الأمل التجارية',
              'DEMO-FRESH-001', 2026, '2026-04-01',
              v_branch_id, v_dept_fi_id, v_court_fi_id,
              NULL, NULL, 'NEW',
+             'GENERAL',
              v_section_id, v_now - interval '7 days', v_now - interval '7 days')
         RETURNING id INTO v_case1_id;
 
@@ -165,12 +167,14 @@ BEGIN
              original_basis_number, basis_year, original_registration_date,
              created_branch_id, created_department_id, created_court_id,
              current_stage_id, current_owner_user_id, lifecycle_status,
+             court_type,
              created_by_user_id, created_at, updated_at)
         VALUES
             ('وزارة الصحة', 'DEFENDANT', 'أحمد محمد الخطيب',
              'DEMO-ASSIGNED-002', 2026, '2026-03-15',
              v_branch_id, v_dept_fi_id, v_court_fi_id,
              NULL, v_lawyer1_id, 'ACTIVE',
+             'GENERAL',
              v_section_id, v_now - interval '14 days', v_now - interval '5 days')
         RETURNING id INTO v_case2_id;
 
@@ -242,12 +246,14 @@ BEGIN
              original_basis_number, basis_year, original_registration_date,
              created_branch_id, created_department_id, created_court_id,
              current_stage_id, current_owner_user_id, lifecycle_status,
+             court_type,
              created_by_user_id, created_at, updated_at)
         VALUES
             ('وزارة التربية', 'PLAINTIFF', 'محمد سعيد العلي',
              'DEMO-FINAL-003', 2025, '2025-11-01',
              v_branch_id, v_dept_fi_id, v_court_fi_id,
              NULL, v_lawyer1_id, 'ACTIVE',
+             'GENERAL',
              v_section_id, v_now - interval '150 days', v_now - interval '10 days')
         RETURNING id INTO v_case3_id;
 
@@ -308,12 +314,14 @@ BEGIN
              original_basis_number, basis_year, original_registration_date,
              created_branch_id, created_department_id, created_court_id,
              current_stage_id, current_owner_user_id, lifecycle_status,
+             court_type,
              created_by_user_id, created_at, updated_at)
         VALUES
             ('وزارة الدفاع', 'DEFENDANT', 'سامر حسن الشامي',
              'DEMO-EXEC-004', 2025, '2025-06-01',
              v_branch_id, v_dept_fi_id, v_court_fi_id,
              NULL, v_lawyer1_id, 'IN_APPEAL',
+             'GENERAL',
              v_section_id, v_now - interval '300 days', v_now - interval '5 days')
         RETURNING id INTO v_case4_id;
 
@@ -421,7 +429,7 @@ BEGIN
                 (v_case4_id, v_stage4b_id, 'وزارة الدفاع',
                  'سامر حسن الشامي', 'حكم مدني',
                  'EX-DEMO-004', 2026,
-                 v_branch_id, v_dept_fi_id, v_lawyer1_id,
+                 v_branch_id, v_dept_exec_id, v_lawyer1_id,
                  'OPEN', v_section_id, v_now - interval '3 days', v_now - interval '1 day')
             RETURNING id INTO v_exec_file_id;
 

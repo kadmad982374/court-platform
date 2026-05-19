@@ -14,8 +14,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQueries, useQuery } from '@tanstack/react-query';
-import { listCases, type ListCasesFilters } from './api';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { deleteCase, listCases, type ListCasesFilters } from './api';
 import { listBranches, listCourts, listDepartments } from '@/shared/api/lookups';
 import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { PageHeader } from '@/shared/ui/PageHeader';
@@ -26,7 +26,7 @@ import { Input } from '@/shared/ui/Input';
 import { Select } from '@/shared/ui/FormFields';
 import { extractApiErrorMessage } from '@/shared/lib/apiError';
 import { useAuth } from '@/features/auth/AuthContext';
-import { canCreateCase, hasRole } from '@/features/auth/permissions';
+import { canCreateCase, canDeleteCase, hasRole } from '@/features/auth/permissions';
 import { CaseSummaryWidget } from '@/features/reports/CaseSummaryWidget';
 import {
   DEPARTMENT_TYPE_LABEL_AR,
@@ -97,11 +97,14 @@ export function CasesListPage() {
   const [page, setPage] = useState(0);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const qc = useQueryClient();
   const showCreate = canCreateCase(user);
+  const showDelete = canDeleteCase(user);
   const mode = useMemo(() => detectMode(user), [user]);
 
   const [pending, setPending] = useState<ListCasesFilters>({});
   const [applied, setApplied] = useState<ListCasesFilters>({});
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Reset paging when a new filter set is applied.
   useEffect(() => { setPage(0); }, [applied]);
@@ -111,6 +114,24 @@ export function CasesListPage() {
     queryFn: () => listCases(page, PAGE_SIZE, applied),
     placeholderData: (prev) => prev,
   });
+
+  // Customer feedback round-3 — admin-only hard delete from the list.
+  const deleteMut = useMutation({
+    mutationFn: (id: number) => deleteCase(id),
+    onSuccess: () => {
+      setDeleteError(null);
+      void qc.invalidateQueries({ queryKey: ['cases'] });
+      void qc.invalidateQueries({ queryKey: ['resolved-register'] });
+    },
+    onError: (e) => setDeleteError(extractApiErrorMessage(e, 'تعذّر حذف الدعوى.')),
+  });
+
+  const confirmDelete = (id: number, basisNumber: string) => {
+    const ok = window.confirm(
+      `هل أنت متأكد من حذف الدعوى رقم ${basisNumber}؟ سيتم حذف جميع المراحل والجلسات والمرفقات والملفات التنفيذية المرتبطة بها نهائياً.`,
+    );
+    if (ok) deleteMut.mutate(id);
+  };
 
   return (
     <>
@@ -151,6 +172,14 @@ export function CasesListPage() {
           <CardTitle>القائمة</CardTitle>
         </CardHeader>
         <CardBody>
+          {deleteError && (
+            <p
+              role="alert"
+              className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+            >
+              {deleteError}
+            </p>
+          )}
           {q.isLoading && <Spinner className="text-brand-600" />}
           {q.isError && (
             <p className="text-sm text-red-600">
@@ -188,13 +217,26 @@ export function CasesListPage() {
                       <TD>{c.lastHearingDate ?? '—'}</TD>
                       <TD>{LIFECYCLE_LABEL_AR[c.lifecycleStatus]}</TD>
                       <TD className="text-end">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => navigate(`/cases/${c.id}`)}
-                        >
-                          فتح
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => navigate(`/cases/${c.id}`)}
+                          >
+                            فتح
+                          </Button>
+                          {showDelete && (
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              disabled={deleteMut.isPending}
+                              onClick={() => confirmDelete(c.id, c.originalBasisNumber)}
+                              data-testid="case-delete"
+                            >
+                              حذف
+                            </Button>
+                          )}
+                        </div>
                       </TD>
                     </TR>
                   ))}

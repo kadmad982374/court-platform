@@ -324,15 +324,21 @@ class ResolvedRegisterAndAppealIT extends AbstractIntegrationTest {
         mvc.perform(post("/api/v1/cases/" + caseId + "/promote-to-appeal")
                 .header("Authorization", "Bearer " + headTok))
                 .andExpect(status().isOk());
-        // Now current stage is APPEAL (and not finalized) — promote again must fail
+        // Now current stage is APPEAL — promote again must fail.
+        // (Customer feedback round-3: STAGE_NOT_FINALIZED was dropped from
+        // this path, so the next guard up — ALREADY_APPEAL_STAGE — now fires.)
         mvc.perform(post("/api/v1/cases/" + caseId + "/promote-to-appeal")
                 .header("Authorization", "Bearer " + headTok))
-                .andExpect(status().isBadRequest()); // STAGE_NOT_FINALIZED first
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("ALREADY_APPEAL_STAGE"));
     }
 
     @Test
-    void test11_promoteRejectedWhenCaseHasNoFinalizedStage() throws Exception {
-        // create + assign but DO NOT finalize
+    void test11_promoteAllowedEvenWhenStageNotFinalized() throws Exception {
+        // Customer feedback round-3 — the client asked us to drop the
+        // "current stage must be FINALIZED" precondition on promote-to-appeal,
+        // so a case with a REGISTERED (un-finalized) FI stage can now move to
+        // appeal directly. This test guards the relaxed contract.
         String body = ("{"
                 + "\"publicEntityName\":\"وزارة العدل\","
                 + "\"publicEntityPosition\":\"PLAINTIFF\","
@@ -355,8 +361,7 @@ class ResolvedRegisterAndAppealIT extends AbstractIntegrationTest {
 
         mvc.perform(post("/api/v1/cases/" + caseId + "/promote-to-appeal")
                 .header("Authorization", "Bearer " + headTok))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("STAGE_NOT_FINALIZED"));
+                .andExpect(status().isOk());
     }
 }
 

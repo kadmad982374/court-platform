@@ -127,8 +127,11 @@ public class UserMembershipAdminService {
     }
 
     private DepartmentMembershipDto toDto(UserDepartmentMembership m) {
+        var deptType = m.getDepartmentId() == null
+                ? null
+                : departmentRepo.findById(m.getDepartmentId()).map(d -> d.getType()).orElse(null);
         return new DepartmentMembershipDto(m.getId(), m.getUserId(), m.getBranchId(),
-                m.getDepartmentId(), m.getMembershipType(), m.isPrimary(), m.isActive());
+                m.getDepartmentId(), deptType, m.getMembershipType(), m.isPrimary(), m.isActive());
     }
 }
 

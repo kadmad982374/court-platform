@@ -1,12 +1,12 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthContext';
-import { visibleItems } from '@/features/navigation/navItems';
+import { visibleItemsForUser } from '@/features/navigation/navItems';
 import { cn } from '@/shared/lib/cn';
 import { useMemo } from 'react';
 
 export function Sidebar() {
   const { user } = useAuth();
-  const items = useMemo(() => visibleItems(user?.roles ?? []), [user]);
+  const items = useMemo(() => visibleItemsForUser(user), [user]);
 
   // Group by section, preserving order of first appearance.
   const grouped = useMemo(() => {
