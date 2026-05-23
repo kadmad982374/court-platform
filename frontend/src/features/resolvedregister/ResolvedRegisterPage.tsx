@@ -193,6 +193,8 @@ export function ResolvedRegisterPage() {
                     <TH>رقم القرار</TH>
                     <TH>تاريخ القرار</TH>
                     <TH>نوع القرار</TH>
+                    <TH>المبلغ المحكوم به</TH>
+                    <TH>الملاحظة</TH>
                     {/* PR-8 (A-5/B-4): row open action — drill into the case detail. */}
                     <TH className="text-end">إجراء</TH>
                   </TR>
@@ -210,6 +212,23 @@ export function ResolvedRegisterPage() {
                       <TD>{e.decisionDate}</TD>
                       <TD>
                         {DECISION_TYPE_LABEL_AR[e.decisionType as DecisionType] ?? e.decisionType}
+                      </TD>
+                      <TD>
+                        {e.adjudgedAmount
+                          ? `${e.adjudgedAmount}${e.currencyCode ? ' ' + e.currencyCode : ''}`
+                          : '—'}
+                      </TD>
+                      <TD>
+                        {e.summaryNotes
+                          ? (
+                            <span
+                              className="block max-w-xs truncate"
+                              title={e.summaryNotes}
+                            >
+                              {e.summaryNotes}
+                            </span>
+                          )
+                          : '—'}
                       </TD>
                       <TD className="text-end">
                         <div className="flex justify-end gap-2">
