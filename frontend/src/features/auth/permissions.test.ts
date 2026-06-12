@@ -4,6 +4,7 @@ import {
   canAddExecutionStep,
   canAssignLawyerForCase,
   canCreateCase,
+  canManagePendingSubmissions,
   canEditCaseBasicData,
   canFinalizeStage,
   canPromoteToAppeal,
@@ -272,5 +273,28 @@ describe('permissions', () => {
       expect(canAccessAdminUsers(user([r]))).toBe(false);
     }
     expect(canAccessAdminUsers(null)).toBe(false);
+  });
+
+  it('canManagePendingSubmissions — SECTION_HEAD or ADMIN_CLERK member only (#3)', () => {
+    const sectionHead = user(['SECTION_HEAD'], [], 1, [
+      { branchId: 1, departmentId: 2, membershipType: 'SECTION_HEAD', active: true },
+    ]);
+    const clerk = user(['ADMIN_CLERK'], [], 2, [
+      { branchId: 1, departmentId: 2, membershipType: 'ADMIN_CLERK', active: true },
+    ]);
+    expect(canManagePendingSubmissions(sectionHead)).toBe(true);
+    expect(canManagePendingSubmissions(clerk)).toBe(true);
+
+    // admin (no dept membership) + lawyer are read-only here.
+    expect(canManagePendingSubmissions(user(['CENTRAL_SUPERVISOR']))).toBe(false);
+    expect(canManagePendingSubmissions(user(['STATE_LAWYER'], [], 3, [
+      { branchId: 1, departmentId: 2, membershipType: 'STATE_LAWYER', active: true },
+    ]))).toBe(false);
+
+    // inactive membership doesn't count.
+    expect(canManagePendingSubmissions(user(['SECTION_HEAD'], [], 4, [
+      { branchId: 1, departmentId: 2, membershipType: 'SECTION_HEAD', active: false },
+    ]))).toBe(false);
+    expect(canManagePendingSubmissions(null)).toBe(false);
   });
 });
