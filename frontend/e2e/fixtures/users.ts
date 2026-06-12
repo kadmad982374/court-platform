@@ -1,10 +1,11 @@
 /**
- * Demo / seed users — passwords from V20/V21/V22 dev seed migrations.
- * All passwords are the same dev default: ChangeMe!2026
+ * Demo / seed users — passwords from V20/V21/V22 dev seed migrations,
+ * re-stamped to `samhar_rr` by V35 (client feedback).
+ * All seeded demo accounts share the same password: samhar_rr
  *
  * See: docs/project/DEMO_SEED_DATA_PLAN.md
  */
-export const DEMO_PASSWORD = 'ChangeMe!2026';
+export const DEMO_PASSWORD = 'samhar_rr';
 
 export interface DemoUser {
   username: string;

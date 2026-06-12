@@ -79,6 +79,9 @@ public class LitigationCaseService {
                 .createdDepartmentId(req.departmentId())
                 .createdCourtId(req.courtId())
                 .chamberName(req.chamberName())
+                .circulationNumber(req.circulationNumber())
+                .capacity(req.capacity())
+                .appealResult(req.appealResult())
                 .courtType(req.courtType())
                 .lifecycleStatus(LifecycleStatus.NEW)
                 .createdByUserId(actorUserId)
@@ -475,6 +478,9 @@ public class LitigationCaseService {
         if (req.originalBasisNumber() != null) lc.setOriginalBasisNumber(req.originalBasisNumber());
         if (req.basisYear() != null) lc.setBasisYear(req.basisYear());
         if (req.chamberName() != null) lc.setChamberName(req.chamberName());
+        if (req.circulationNumber() != null) lc.setCirculationNumber(req.circulationNumber());
+        if (req.capacity() != null) lc.setCapacity(req.capacity());
+        if (req.appealResult() != null) lc.setAppealResult(req.appealResult());
 
         if (req.courtId() != null && stage != null) {
             // المحكمة الجديدة يجب أن تبقى متسقة مع نفس الفرع/القسم.
@@ -629,7 +635,9 @@ public class LitigationCaseService {
                 lc.getCurrentStageId(), lc.getCurrentOwnerUserId(), ownerFullName,
                 lc.getLifecycleStatus(),
                 lc.getCreatedByUserId(), lc.getCreatedAt(), lc.getUpdatedAt(),
-                lc.getLastHearingDate(), stageDtos);
+                lc.getLastHearingDate(),
+                lc.getCirculationNumber(), lc.getCapacity(), lc.getAppealResult(),
+                stageDtos);
     }
 
     private CaseStageDto toStageDto(CaseStage s) {

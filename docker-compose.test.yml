@@ -42,7 +42,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       SLA_JWT_SECRET: ${SLA_JWT_SECRET:?SLA_JWT_SECRET is required}
       SLA_BOOTSTRAP_ADMIN_ENABLED: "true"
-      SLA_BOOTSTRAP_ADMIN_PASSWORD: ${SLA_BOOTSTRAP_ADMIN_PASSWORD:-ChangeMe!2026}
+      SLA_BOOTSTRAP_ADMIN_PASSWORD: ${SLA_BOOTSTRAP_ADMIN_PASSWORD:-samhar_rr}
       SLA_ATTACHMENTS_BASE_DIR: /app/attachments-data
       SERVER_PORT: 8080
       # Customer feedback round-2 — without this, every browser POST to

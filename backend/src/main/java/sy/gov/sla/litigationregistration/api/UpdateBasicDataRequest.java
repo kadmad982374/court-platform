@@ -24,6 +24,10 @@ public record UpdateBasicDataRequest(
         @Size(max = 64)  String stageBasisNumber,
         @Min(1900) @Max(2100) Integer stageYear,
         LocalDate firstHearingDate,
-        @Size(max = 200) String firstPostponementReason
+        @Size(max = 200) String firstPostponementReason,
+        // Client feedback — cassation / external-disputes extras (optional).
+        @Size(max = 64)  String circulationNumber,
+        @Size(max = 64)  String capacity,
+        @Size(max = 200) String appealResult
 ) {}
 

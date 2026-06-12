@@ -227,7 +227,7 @@ docker compose -f docker-compose.demo.yml --env-file .env.demo up -d --build
 
 Helper scripts: `scripts/demo-up.{sh,bat}`, `scripts/demo-down.{sh,bat}`, `scripts/demo-update.{sh,bat}`
 
-### Demo credentials (all pw: `ChangeMe!2026`)
+### Demo credentials (all pw: `samhar_rr` — client feedback, set by V35)
 
 - `admin` → CENTRAL_SUPERVISOR
 - `section_fi_dam` → SECTION_HEAD (main demo flow)

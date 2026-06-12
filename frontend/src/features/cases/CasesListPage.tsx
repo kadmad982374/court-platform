@@ -20,7 +20,7 @@ import { listBranches, listCourts, listDepartments } from '@/shared/api/lookups'
 import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { Spinner } from '@/shared/ui/Spinner';
-import { Table, TBody, TD, TH, THead, TR } from '@/shared/ui/Table';
+import { Table, TBody, THead, TR } from '@/shared/ui/Table';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/Input';
 import { Select } from '@/shared/ui/FormFields';
@@ -29,9 +29,12 @@ import { useAuth } from '@/features/auth/AuthContext';
 import { canCreateCase, canDeleteCase, hasRole } from '@/features/auth/permissions';
 import { CaseSummaryWidget } from '@/features/reports/CaseSummaryWidget';
 import {
-  caseSimpleStatus,
+  CASSATION_COLUMNS,
+  DEFAULT_COLUMNS,
+  type CaseColumnSet,
+} from './caseTableColumns';
+import {
   DEPARTMENT_TYPE_LABEL_AR,
-  PUBLIC_ENTITY_POSITION_LABEL_AR,
   type CurrentUser,
   type Department,
   type DepartmentType,
@@ -115,6 +118,31 @@ export function CasesListPage() {
     placeholderData: (prev) => prev,
   });
 
+  // ── Phase 2 (Damascus registers): per-register columns ──────────
+  // Resolve the "active register type" from the APPLIED filter's
+  // departmentId → its DepartmentType. The branch the department lives in
+  // is the applied branch (admin) or the user's implicit branch (others).
+  const activeRegisterBranchId =
+    applied.branchId ??
+    (mode.kind === 'branch_head' ? mode.branchId :
+     mode.kind === 'dept_member' ? mode.branchId :
+     undefined);
+
+  const registerDeptsQ = useQuery({
+    queryKey: ['lookups', 'departments', activeRegisterBranchId ?? null],
+    queryFn: () => listDepartments(activeRegisterBranchId!),
+    enabled: activeRegisterBranchId != null && applied.departmentId != null,
+    staleTime: 60_000,
+  });
+
+  const activeRegisterType: DepartmentType | undefined =
+    applied.departmentId != null
+      ? (registerDeptsQ.data ?? []).find((d) => d.id === applied.departmentId)?.type
+      : undefined;
+
+  const columns: CaseColumnSet =
+    activeRegisterType === 'CASSATION' ? CASSATION_COLUMNS : DEFAULT_COLUMNS;
+
   // Customer feedback round-3 — admin-only hard delete from the list.
   const deleteMut = useMutation({
     mutationFn: (id: number) => deleteCase(id),
@@ -195,49 +223,16 @@ export function CasesListPage() {
             <>
               <Table>
                 <THead>
-                  <TR>
-                    <TH>رقم الأساس</TH>
-                    <TH>السنة</TH>
-                    <TH>الجهة العامة</TH>
-                    <TH>الصفة</TH>
-                    <TH>الخصم</TH>
-                    <TH>تاريخ الجلسة</TH>
-                    <TH>الحالة</TH>
-                    <TH className="text-end">إجراء</TH>
-                  </TR>
+                  <TR>{columns.head()}</TR>
                 </THead>
                 <TBody>
                   {q.data.content.map((c) => (
                     <TR key={c.id}>
-                      <TD>{c.originalBasisNumber}</TD>
-                      <TD>{c.basisYear}</TD>
-                      <TD>{c.publicEntityName}</TD>
-                      <TD>{PUBLIC_ENTITY_POSITION_LABEL_AR[c.publicEntityPosition]}</TD>
-                      <TD>{c.opponentName}</TD>
-                      <TD>{c.lastHearingDate ?? '—'}</TD>
-                      <TD>{caseSimpleStatus(c)}</TD>
-                      <TD className="text-end">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => navigate(`/cases/${c.id}`)}
-                          >
-                            فتح
-                          </Button>
-                          {showDelete && (
-                            <Button
-                              size="sm"
-                              variant="danger"
-                              disabled={deleteMut.isPending}
-                              onClick={() => confirmDelete(c.id, c.originalBasisNumber)}
-                              data-testid="case-delete"
-                            >
-                              حذف
-                            </Button>
-                          )}
-                        </div>
-                      </TD>
+                      {columns.row(c, {
+                        onOpen: (id) => navigate(`/cases/${id}`),
+                        onDelete: showDelete ? confirmDelete : undefined,
+                        deleting: deleteMut.isPending,
+                      })}
                     </TR>
                   ))}
                 </TBody>
@@ -445,7 +440,7 @@ function FilterForm({
       )}
 
       {(mode.kind === 'admin' || mode.kind === 'branch_head' || mode.kind === 'dept_member') && (
-        <Field label="المحكمة">
+        <Field label={activeDeptType === 'CASSATION' ? 'الغرفة' : 'المحكمة'}>
           <Select
             value={pending.courtId ?? ''}
             disabled={activeBranchId == null}

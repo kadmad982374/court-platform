@@ -32,8 +32,21 @@ class OrganizationApiIT extends AbstractIntegrationTest {
 
     @Test
     @WithMockUser
-    void branchHasFourDepartments() throws Exception {
+    void damascusHasSevenDepartments() throws Exception {
+        // Client feedback: Damascus (branch 1) gains 3 extra registers
+        // (CASSATION, ADMINISTRATIVE_JUDICIARY, EXTERNAL_DISPUTES) on top of the
+        // 4 standard department types — seeded for Damascus only (V39).
         mvc.perform(get("/api/v1/branches/1/departments").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(7));
+    }
+
+    @Test
+    @WithMockUser
+    void nonDamascusBranchKeepsFourDepartments() throws Exception {
+        // The new registers are Damascus-exclusive — every other branch still
+        // has exactly the 4 standard department types.
+        mvc.perform(get("/api/v1/branches/2/departments").accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(4));
     }

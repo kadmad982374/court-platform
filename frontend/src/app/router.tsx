@@ -5,7 +5,7 @@ import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage';
 import { RequireAuth } from '@/features/auth/RequireAuth';
 import { AppShell } from '@/features/layout/AppShell';
 import { DashboardPage } from '@/pages/DashboardPage';
-import { ProfilePage } from '@/features/profile/ProfilePage';
+import { StudiesHubPage } from '@/features/knowledge/StudiesHubPage';
 import { LegalLibraryPage } from '@/pages/LegalLibraryPage';
 import { PublicEntitiesPage } from '@/pages/PublicEntitiesPage';
 import { CircularsPage } from '@/pages/CircularsPage';
@@ -24,6 +24,8 @@ import { PublicEntityDetailPage } from '@/pages/PublicEntityDetailPage';
 import { CircularDetailPage } from '@/pages/CircularDetailPage';
 import { AdminUsersListPage } from '@/features/admin-users/pages/AdminUsersListPage';
 import { AdminUserDetailPage } from '@/features/admin-users/pages/AdminUserDetailPage';
+import { ExternalDisputesPage } from '@/features/external-disputes/ExternalDisputesPage';
+import { PendingSubmissionsPage } from '@/features/pending-submission/PendingSubmissionsPage';
 
 /**
  * Phase 9 router.
@@ -66,7 +68,9 @@ export function AppRouter() {
         <Route element={<AppShell />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard"             element={<DashboardPage />} />
-          <Route path="/profile"               element={<ProfilePage />} />
+          {/* Client feedback: profile is merged into the home page. Keep the
+              old path working by redirecting it to the dashboard. */}
+          <Route path="/profile"               element={<Navigate to="/dashboard" replace />} />
 
           {/* Phase 9 — business */}
           <Route path="/cases"                 element={<CasesListPage />} />
@@ -74,6 +78,8 @@ export function AppRouter() {
           <Route path="/cases/:caseId"         element={<CaseDetailPage />} />
           <Route path="/stages/:stageId"       element={<StageDetailPage />} />
           <Route path="/resolved-register"     element={<ResolvedRegisterPage />} />
+          {/* Phase 2 (#3) — تحت الرفع register. */}
+          <Route path="/pending-submissions"   element={<PendingSubmissionsPage />} />
           <Route path="/execution-files"       element={<ExecutionFilesPage />} />
           <Route path="/execution-files/:id"   element={<ExecutionFileDetailPage />} />
 
@@ -83,7 +89,12 @@ export function AppRouter() {
               Visual gate; backend re-validates per request. */}
           <Route path="/notifications/broadcast" element={<BroadcastPage />} />
 
-          {/* Phase 7 reference (kept) — Phase 10 added detail pages */}
+          {/* Phase 7 reference (kept) — Phase 10 added detail pages.
+              Client feedback: «قسم الدراسات» hub groups these. */}
+          <Route path="/studies"                   element={<StudiesHubPage />} />
+          {/* Phase 2 (#5b) — المنازعات الخارجية register, reached via the
+              قسم الدراسات hub card. */}
+          <Route path="/external-disputes"          element={<ExternalDisputesPage />} />
           <Route path="/legal-library"             element={<LegalLibraryPage />} />
           <Route path="/legal-library/items/:id"   element={<LegalLibraryItemDetailPage />} />
           <Route path="/public-entities"           element={<PublicEntitiesPage />} />

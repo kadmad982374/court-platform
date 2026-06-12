@@ -32,6 +32,11 @@ public record CreateCaseRequest(
         @NotBlank @Size(max = 64) String stageBasisNumber,
         @NotNull @Min(1900) @Max(2100) Integer stageYear,
         @NotNull LocalDate firstHearingDate,
-        @NotBlank @Size(max = 200) String firstPostponementReason
+        @NotBlank @Size(max = 200) String firstPostponementReason,
+        // Client feedback — optional cassation / external-disputes extras.
+        // Only populated for the Damascus النقض / المنازعات الخارجية registers.
+        @Size(max = 64)  String circulationNumber,
+        @Size(max = 64)  String capacity,
+        @Size(max = 200) String appealResult
 ) {}
 

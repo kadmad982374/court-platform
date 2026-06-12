@@ -64,7 +64,7 @@ const schema = z.object({
   originalBasisNumber:     z.string().trim().min(1, 'مطلوب').max(64),
   originalRegistrationDate: z.string().min(1, 'مطلوب')        // yyyy-MM-dd
                               .regex(/^\d{4}-\d{2}-\d{2}$/, 'تاريخ غير صالح'),
-  stageType:               z.enum(['CONCILIATION', 'FIRST_INSTANCE', 'APPEAL']),
+  stageType:               z.enum(['CONCILIATION', 'FIRST_INSTANCE', 'APPEAL', 'SINGLE_INSTANCE']),
   /** Customer feedback round-2: نوع المحكمة. */
   courtType: z.enum([
     'URGENT', 'MARITIME', 'BANKING', 'LABOR',
@@ -72,17 +72,27 @@ const schema = z.object({
   ]),
   firstHearingDate:        z.string().min(1, 'مطلوب'),       // yyyy-MM-dd
   firstPostponementReason: z.string().trim().min(1, 'الرجاء تعبئة سبب التأجيل الأول').max(200),
+  // Phase 2 (Damascus registers) — optional fields, only shown for CASSATION.
+  circulationNumber:       z.string().trim().max(64).optional().or(z.literal('')),
+  capacity:                z.string().trim().max(128).optional().or(z.literal('')),
+  appealResult:            z.string().trim().max(200).optional().or(z.literal('')),
 });
 type FormValues = z.infer<typeof schema>;
 
 const POSITION_OPTIONS: PublicEntityPosition[] = ['PLAINTIFF', 'DEFENDANT'];
 const STAGE_OPTIONS: StageType[] = ['CONCILIATION', 'FIRST_INSTANCE', 'APPEAL'];
 
-/** Map StageType → DepartmentType for the courts filter. */
+/**
+ * Map the original 4 stage types → DepartmentType for the courts filter.
+ * The new SINGLE_INSTANCE registers (CASSATION / ADMINISTRATIVE_JUDICIARY)
+ * resolve the courts filter directly from the chosen department's TYPE, so
+ * they are not part of this StageType→DepartmentType map.
+ */
 const STAGE_TO_DEPT_TYPE: Record<StageType, DepartmentType> = {
-  CONCILIATION:   'CONCILIATION',
-  FIRST_INSTANCE: 'FIRST_INSTANCE',
-  APPEAL:         'APPEAL',
+  CONCILIATION:    'CONCILIATION',
+  FIRST_INSTANCE:  'FIRST_INSTANCE',
+  APPEAL:          'APPEAL',
+  SINGLE_INSTANCE: 'CASSATION',
 };
 
 export function CreateCasePage() {
@@ -137,14 +147,30 @@ export function CreateCasePage() {
     },
   });
 
-  const branchId  = watch('branchId');
-  const stageType = watch('stageType');
+  const branchId    = watch('branchId');
+  const stageType   = watch('stageType');
+  const departmentId = watch('departmentId');
 
   const departmentsQ = useQuery({
     queryKey: ['lookup', 'departments', branchId],
     queryFn: () => listDepartments(Number(branchId)),
     enabled: allowed && !!branchId,
   });
+
+  // Phase 2 (Damascus registers) — resolve the selected department's TYPE.
+  // The 3 new Damascus departments (CASSATION / ADMINISTRATIVE_JUDICIARY /
+  // EXTERNAL_DISPUTES) have no promotion ladder: they file as SINGLE_INSTANCE,
+  // and the courts filter follows the department type directly (not the
+  // StageType→DepartmentType map used by the original 4 types).
+  const selectedDept = useMemo(
+    () => (departmentsQ.data ?? []).find((d) => d.id === Number(departmentId)) ?? null,
+    [departmentsQ.data, departmentId],
+  );
+  const isSingleInstanceDept =
+    selectedDept?.type === 'CASSATION'
+    || selectedDept?.type === 'ADMINISTRATIVE_JUDICIARY'
+    || selectedDept?.type === 'EXTERNAL_DISPUTES';
+  const isCassationDept = selectedDept?.type === 'CASSATION';
 
   // Resolve the locked dept's row so we can read its type → matching stage-type.
   const lockedDept = useMemo(() => {
@@ -162,6 +188,11 @@ export function CreateCasePage() {
     if (lockedDept.type === 'CONCILIATION')   return 'CONCILIATION';
     if (lockedDept.type === 'FIRST_INSTANCE') return 'FIRST_INSTANCE';
     if (lockedDept.type === 'APPEAL')         return 'APPEAL';
+    // Phase 2 (Damascus registers): the 3 new departments have no promotion
+    // ladder — they always file as SINGLE_INSTANCE.
+    if (lockedDept.type === 'CASSATION'
+        || lockedDept.type === 'ADMINISTRATIVE_JUDICIARY'
+        || lockedDept.type === 'EXTERNAL_DISPUTES') return 'SINGLE_INSTANCE';
     return null; // EXECUTION
   }, [lockedDept]);
 
@@ -202,13 +233,29 @@ export function CreateCasePage() {
     [departmentsQ.data, allowedDeptIds],
   );
 
-  const departmentTypeForCourts: DepartmentType = STAGE_TO_DEPT_TYPE[stageType ?? 'FIRST_INSTANCE'];
+  // For the new single-instance departments the courts filter follows the
+  // department's own TYPE; otherwise it follows the chosen stage type.
+  const departmentTypeForCourts: DepartmentType = isSingleInstanceDept && selectedDept
+    ? selectedDept.type
+    : STAGE_TO_DEPT_TYPE[stageType ?? 'FIRST_INSTANCE'];
 
   const courtsQ = useQuery({
     queryKey: ['lookup', 'courts', branchId, departmentTypeForCourts],
     queryFn: () => listCourts({ branchId: Number(branchId), departmentType: departmentTypeForCourts }),
     enabled: allowed && !!branchId,
   });
+
+  // Keep stageType in sync with the selected department: the 3 new Damascus
+  // departments always file as SINGLE_INSTANCE (no promotion ladder), so the
+  // stage-type picker is hidden for them and the value is forced here.
+  useEffect(() => {
+    if (isSingleInstanceDept && stageType !== 'SINGLE_INSTANCE') {
+      setValue('stageType', 'SINGLE_INSTANCE');
+    } else if (!isSingleInstanceDept && stageType === 'SINGLE_INSTANCE') {
+      // Switched back to an original dept type — restore a valid default.
+      setValue('stageType', 'FIRST_INSTANCE');
+    }
+  }, [isSingleInstanceDept, stageType, setValue]);
 
   // Reset court when branch / stage type changes (their valid courts differ).
   useEffect(() => {
@@ -277,6 +324,10 @@ export function CreateCasePage() {
       stageYear: computedYear,
       firstHearingDate: v.firstHearingDate,
       firstPostponementReason: v.firstPostponementReason,
+      // Phase 2 (Damascus registers) — optional; only filled for CASSATION.
+      circulationNumber: v.circulationNumber ? v.circulationNumber : null,
+      capacity: v.capacity ? v.capacity : null,
+      appealResult: v.appealResult ? v.appealResult : null,
     };
     createMut.mutate(body);
   };
@@ -349,17 +400,21 @@ export function CreateCasePage() {
                   </Select>
                 </Field>
 
-                <Field label="نوع المرحلة" error={errors.stageType?.message}>
-                  <Select {...register('stageType')}>
-                    {STAGE_OPTIONS.map((s) => (
-                      <option key={s} value={s}>{STAGE_TYPE_LABEL_AR[s]}</option>
-                    ))}
-                  </Select>
-                </Field>
+                {/* The 3 new Damascus departments have no promotion ladder —
+                    they file as SINGLE_INSTANCE, so no stage-type choice. */}
+                {!isSingleInstanceDept && (
+                  <Field label="نوع المرحلة" error={errors.stageType?.message}>
+                    <Select {...register('stageType')}>
+                      {STAGE_OPTIONS.map((s) => (
+                        <option key={s} value={s}>{STAGE_TYPE_LABEL_AR[s]}</option>
+                      ))}
+                    </Select>
+                  </Field>
+                )}
               </>
             )}
 
-            <Field label="المحكمة" error={errors.courtId?.message}>
+            <Field label={isCassationDept ? 'الغرفة' : 'المحكمة'} error={errors.courtId?.message}>
               <Select {...register('courtId')} disabled={!branchId || courtsQ.isLoading}>
                 <option value="">— اختر —</option>
                 {(courtsQ.data ?? []).filter((c) => c.active).map((c) => (
@@ -380,6 +435,21 @@ export function CreateCasePage() {
                 ))}
               </Select>
             </Field>
+
+            {/* Phase 2 (Damascus registers) — CASSATION-only extra fields. */}
+            {isCassationDept && (
+              <>
+                <Field label="رقم المتداول (اختياري)" error={errors.circulationNumber?.message}>
+                  <Input {...register('circulationNumber')} placeholder="إن وُجد" />
+                </Field>
+                <Field label="صفتها (اختياري)" error={errors.capacity?.message}>
+                  <Input {...register('capacity')} placeholder="مثال: طاعن" />
+                </Field>
+                <Field label="نتيجة الطعن (اختياري)" error={errors.appealResult?.message}>
+                  <Input {...register('appealResult')} placeholder="إن وُجدت" />
+                </Field>
+              </>
+            )}
           </CardBody>
         </Card>
 

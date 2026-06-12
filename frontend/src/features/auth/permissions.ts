@@ -358,6 +358,23 @@ export function canViewExecution(user: CurrentUser | null): boolean {
 }
 
 /**
+ * Phase 2 (#3) — تحت الرفع register write gate.
+ *
+ * Visual-only hint: show the add/edit affordances if the user has an active
+ * SECTION_HEAD or ADMIN_CLERK membership somewhere (mirrors `canCreateCase`).
+ * Branch-heads / supervisors see the table read-only. Backend re-validates
+ * the (branchId, departmentId) scope on every write regardless.
+ */
+export function canManagePendingSubmissions(user: CurrentUser | null): boolean {
+  if (!user) return false;
+  return user.departmentMemberships.some(
+    (m) =>
+      m.active &&
+      (m.membershipType === 'SECTION_HEAD' || m.membershipType === 'ADMIN_CLERK'),
+  );
+}
+
+/**
  * UI sub-phase B — `/admin/users` minimal.
  *
  * Visual-only gate for the `/admin/users` route + sidebar entry.

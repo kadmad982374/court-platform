@@ -29,6 +29,10 @@ public record LitigationCaseDto(
         Instant createdAt,
         Instant updatedAt,
         LocalDate lastHearingDate,
+        // Client feedback — cassation / external-disputes extras (nullable).
+        String circulationNumber,
+        String capacity,
+        String appealResult,
         List<CaseStageDto> stages
 ) {}
 

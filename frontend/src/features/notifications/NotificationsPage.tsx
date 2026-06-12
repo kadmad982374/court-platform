@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Send } from 'lucide-react';
 import { listNotifications, markNotificationRead } from './api';
 import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { PageHeader } from '@/shared/ui/PageHeader';
@@ -14,6 +15,8 @@ import { Spinner } from '@/shared/ui/Spinner';
 import { Button } from '@/shared/ui/Button';
 import { extractApiErrorMessage } from '@/shared/lib/apiError';
 import { cn } from '@/shared/lib/cn';
+import { useAuth } from '@/features/auth/AuthContext';
+import { canBroadcastNotification } from '@/features/auth/permissions';
 
 const PAGE_SIZE = 20;
 
@@ -40,6 +43,7 @@ function notificationTarget(
 export function NotificationsPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [page, setPage] = useState(0);
 
   const queryKey = ['notifications', { page, size: PAGE_SIZE }] as const;
@@ -65,7 +69,24 @@ export function NotificationsPage() {
 
   return (
     <>
-      <PageHeader title="الإشعارات" />
+      <PageHeader
+        title="الإشعارات"
+        actions={
+          // Client feedback: send-notification is now a button on this page,
+          // gated to broadcast-capable roles. Backend re-validates per request.
+          canBroadcastNotification(user) ? (
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => navigate('/notifications/broadcast')}
+              data-testid="notifications-send-action"
+            >
+              <Send className="h-4 w-4" aria-hidden="true" />
+              إرسال إشعار
+            </Button>
+          ) : undefined
+        }
+      />
 
       {actionError && (
         <div role="alert" className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">

@@ -8,6 +8,12 @@ package sy.gov.sla.litigationregistration.domain;
 public enum StageType {
     CONCILIATION,
     FIRST_INSTANCE,
-    APPEAL
+    APPEAL,
+    /**
+     * مرحلة واحدة بلا سلّم ترقية — تُستخدم للسجلات الجديدة المضافة بطلب العميل
+     * (النقض، القضاء الإداري، المنازعات الخارجية). لا تدخل في منطق الترقية
+     * للاستئناف/التنفيذ.
+     */
+    SINGLE_INSTANCE
 }
 

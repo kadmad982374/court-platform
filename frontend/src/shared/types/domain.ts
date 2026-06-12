@@ -244,11 +244,12 @@ export const COURT_TYPE_OPTIONS: readonly CourtType[] = [
   'GENERAL', 'INSURANCE', 'CUSTOMS', 'ADMINISTRATIVE',
 ] as const;
 
-export type StageType = 'CONCILIATION' | 'FIRST_INSTANCE' | 'APPEAL';
+export type StageType = 'CONCILIATION' | 'FIRST_INSTANCE' | 'APPEAL' | 'SINGLE_INSTANCE';
 export const STAGE_TYPE_LABEL_AR: Record<StageType, string> = {
   CONCILIATION:   'مصالحة',
   FIRST_INSTANCE: 'بداية',
   APPEAL:         'استئناف',
+  SINGLE_INSTANCE:'مرحلة واحدة',
 };
 
 export type StageStatus =
@@ -359,6 +360,12 @@ export interface LitigationCase {
   updatedAt: string;
   /** ISO date — latest hearing across all stages (denormalized). May be null for very old data. */
   lastHearingDate: string | null;
+  /** Phase 2 (Damascus registers): رقم المتداول — circulation number (CASSATION / EXTERNAL_DISPUTES). */
+  circulationNumber: string | null;
+  /** Phase 2 (Damascus registers): صفتها — the entity's capacity (e.g. طاعن). */
+  capacity: string | null;
+  /** Phase 2 (Damascus registers): نتيجة الطعن — appeal/cassation result. */
+  appealResult: string | null;
   stages: CaseStage[];
 }
 
@@ -665,13 +672,23 @@ export interface Notification {
 // Phase 11 — organization lookups (read-only — used by admin screens)
 // ============================================================
 
-export type DepartmentType = 'CONCILIATION' | 'FIRST_INSTANCE' | 'APPEAL' | 'EXECUTION';
+export type DepartmentType =
+  | 'CONCILIATION'
+  | 'FIRST_INSTANCE'
+  | 'APPEAL'
+  | 'EXECUTION'
+  | 'CASSATION'
+  | 'ADMINISTRATIVE_JUDICIARY'
+  | 'EXTERNAL_DISPUTES';
 
 export const DEPARTMENT_TYPE_LABEL_AR: Record<DepartmentType, string> = {
-  CONCILIATION:   'مصالحة',
-  FIRST_INSTANCE: 'بداية',
-  APPEAL:         'استئناف',
-  EXECUTION:      'تنفيذ',
+  CONCILIATION:             'مصالحة',
+  FIRST_INSTANCE:           'بداية',
+  APPEAL:                   'استئناف',
+  EXECUTION:                'تنفيذ',
+  CASSATION:                'قسم النقض',
+  ADMINISTRATIVE_JUDICIARY: 'القضاء الإداري',
+  EXTERNAL_DISPUTES:        'المنازعات الخارجية',
 };
 
 /** Mirrors backend `BranchDto`. */
@@ -726,6 +743,12 @@ export interface CreateCaseRequest {
   stageYear: number;
   firstHearingDate: string;                // ISO yyyy-MM-dd
   firstPostponementReason: string;
+  /** Phase 2 (Damascus registers): optional رقم المتداول. */
+  circulationNumber?: string | null;
+  /** Phase 2 (Damascus registers): optional صفتها (e.g. طاعن). */
+  capacity?: string | null;
+  /** Phase 2 (Damascus registers): optional نتيجة الطعن. */
+  appealResult?: string | null;
 }
 
 /**

@@ -23,15 +23,25 @@ describe('navItems / visibleItems', () => {
     const items = visibleItems(['CENTRAL_SUPERVISOR']);
     const paths = items.map((i) => i.to);
     expect(paths).toContain('/dashboard');
-    expect(paths).toContain('/profile');
     expect(paths).toContain('/cases');
     expect(paths).toContain('/resolved-register');
     expect(paths).toContain('/execution-files');
-    expect(paths).toContain('/legal-library');
+    // Client feedback: المكتبة القانونية / التعاميم are now grouped under the
+    // «قسم الدراسات» hub instead of being flat sidebar entries.
+    expect(paths).toContain('/studies');
     expect(paths).toContain('/public-entities');
-    expect(paths).toContain('/circulars');
     expect(paths).toContain('/notifications');
     expect(paths).toContain('/admin/users');
+  });
+
+  it('client feedback — profile, broadcast, and flat reference items are no longer sidebar entries', () => {
+    const paths = NAV_ITEMS.map((i) => i.to);
+    // Profile merged into the home page; broadcast moved to a button inside the
+    // notifications page; legal-library/circulars folded into «قسم الدراسات».
+    expect(paths).not.toContain('/profile');
+    expect(paths).not.toContain('/notifications/broadcast');
+    expect(paths).not.toContain('/legal-library');
+    expect(paths).not.toContain('/circulars');
   });
 
   it('UI sub-phase B — `/admin/users` is hidden from every non-CENTRAL_SUPERVISOR role', () => {
@@ -73,15 +83,12 @@ describe('navItems / visibleItems', () => {
     expect(it!.section).toBe('الأعمال');
   });
 
-  it('PR-14 (A-1 / Q-G) — "إرسال إشعار" entry only for CENTRAL_SUPERVISOR / BRANCH_HEAD / SECTION_HEAD', () => {
-    const it = NAV_ITEMS.find((n) => n.to === '/notifications/broadcast');
+  it('client feedback — «قسم الدراسات» hub is grouped under "مرجعيات"', () => {
+    const it = NAV_ITEMS.find((n) => n.to === '/studies');
     expect(it).toBeTruthy();
-    expect(it!.section).toBe('عام');
-    for (const r of ['CENTRAL_SUPERVISOR', 'BRANCH_HEAD', 'SECTION_HEAD'] as const) {
-      expect(visibleItems([r]).map((i) => i.to)).toContain('/notifications/broadcast');
-    }
-    for (const r of ['ADMIN_CLERK', 'STATE_LAWYER', 'READ_ONLY_SUPERVISOR', 'SPECIAL_INSPECTOR'] as const) {
-      expect(visibleItems([r]).map((i) => i.to)).not.toContain('/notifications/broadcast');
-    }
+    expect(it!.section).toBe('مرجعيات');
+    // دليل الجهات العامة stays a top-level مرجعيات entry alongside the hub.
+    const dir = NAV_ITEMS.find((n) => n.to === '/public-entities');
+    expect(dir?.section).toBe('مرجعيات');
   });
 });

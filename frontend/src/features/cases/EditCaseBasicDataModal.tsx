@@ -36,9 +36,10 @@ import {
 } from '@/shared/types/domain';
 
 const STAGE_TO_DEPT_TYPE: Record<StageType, DepartmentType> = {
-  CONCILIATION:   'CONCILIATION',
-  FIRST_INSTANCE: 'FIRST_INSTANCE',
-  APPEAL:         'APPEAL',
+  CONCILIATION:    'CONCILIATION',
+  FIRST_INSTANCE:  'FIRST_INSTANCE',
+  APPEAL:          'APPEAL',
+  SINGLE_INSTANCE: 'CASSATION',
 };
 
 const schema = z.object({

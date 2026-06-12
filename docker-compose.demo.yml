@@ -40,7 +40,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       SLA_JWT_SECRET: ${SLA_JWT_SECRET:?SLA_JWT_SECRET is required}
       SLA_BOOTSTRAP_ADMIN_ENABLED: "true"
-      SLA_BOOTSTRAP_ADMIN_PASSWORD: ${SLA_BOOTSTRAP_ADMIN_PASSWORD:-ChangeMe!2026}
+      SLA_BOOTSTRAP_ADMIN_PASSWORD: ${SLA_BOOTSTRAP_ADMIN_PASSWORD:-samhar_rr}
       # P8b-01 / D-050: opt-in to the V20–V23 dev-user seed runner.
       # Demo only — must NOT be set in production (default is false).
       SLA_DEV_SEED_ENABLED: "true"

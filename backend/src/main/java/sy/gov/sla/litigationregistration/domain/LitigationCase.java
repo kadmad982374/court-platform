@@ -57,6 +57,22 @@ public class LitigationCase {
     @Column(name = "chamber_name", length = 128)
     private String chamberName;
 
+    // ---- Client feedback: cassation / external-disputes extras (Damascus). ----
+    // All nullable — meaningful only for the new register types; existing cases
+    // and all non-Damascus branches leave them null.
+
+    /** رقم المتداول — سجلّا النقض والمنازعات الخارجية. */
+    @Column(name = "circulation_number", length = 64)
+    private String circulationNumber;
+
+    /** صفة الجهة في الطعن/النزاع (مثل: طاعن، مطعون ضده). */
+    @Column(name = "capacity", length = 64)
+    private String capacity;
+
+    /** نتيجة الطعن — سجل النقض. */
+    @Column(name = "appeal_result", length = 200)
+    private String appealResult;
+
     /** Customer feedback round-2: jurisdictional flavour of the originating court. */
     @Enumerated(EnumType.STRING)
     @Column(name = "court_type", nullable = false, length = 32)

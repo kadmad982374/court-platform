@@ -28,13 +28,19 @@ export interface NavItem {
  */
 export const NAV_ITEMS: NavItem[] = [
   // ---- General (any authenticated user) ----
+  // Client feedback: profile is merged into the home page, and "إرسال إشعار"
+  // moved to a button inside the notifications page. The عام group is now just
+  // the home page + the notifications inbox.
   { to: '/dashboard',       label: 'الصفحة الرئيسية', allowedRoles: ALL_ROLES, section: 'عام' },
-  { to: '/profile',         label: 'ملفي الشخصي',     allowedRoles: ALL_ROLES, section: 'عام' },
 
   // ---- Business (Phase 9) ----
   // D-021/D-025/D-031: backend enforces scope; UI shows what server returns.
   { to: '/cases',             label: 'سجل الدعاوى', allowedRoles: ALL_ROLES, section: 'الأعمال' },
   { to: '/resolved-register', label: 'سجل الفصل',  allowedRoles: ALL_ROLES, section: 'الأعمال' },
+  // Phase 2 (#3) — تحت الرفع. Visible to all roles; the add/edit button is
+  // gated client-side (canManagePendingSubmissions) and re-validated by the
+  // backend scope.
+  { to: '/pending-submissions', label: 'تحت الرفع', allowedRoles: ALL_ROLES, section: 'الأعمال' },
   // Customer feedback round-3: hide execution entries for users that have no
   // path into the execution module (e.g. SECTION_HEAD of FIRST_INSTANCE).
   // Backend re-validates with NO_EXECUTION_ACCESS.
@@ -47,21 +53,18 @@ export const NAV_ITEMS: NavItem[] = [
     allowedRoles: ALL_ROLES, section: 'الأعمال', visible: canViewExecution },
 
   // ---- Knowledge directory (Phase 7 read-only modules, D-042) ----
-  { to: '/legal-library',   label: 'المكتبة القانونية', allowedRoles: ALL_ROLES, section: 'مرجعيات' },
+  // Client feedback: المكتبة القانونية + التعاميم (+ القرارات الإدارية +
+  // المنازعات الخارجية) are grouped under the «قسم الدراسات والمنازعات الخارجية»
+  // hub. The مرجعيات group is now: قسم الدراسات + دليل الجهات العامة.
+  { to: '/studies',         label: 'قسم الدراسات والمنازعات الخارجية', allowedRoles: ALL_ROLES, section: 'مرجعيات' },
   { to: '/public-entities', label: 'دليل الجهات العامة', allowedRoles: ALL_ROLES, section: 'مرجعيات' },
-  { to: '/circulars',       label: 'التعاميم',          allowedRoles: ALL_ROLES, section: 'مرجعيات' },
 
   // ---- Phase 10 — notifications inbox (D-038) ----
   // Reminders/Attachments are intentionally NOT top-level nav entries — they
   // live as sections inside their host pages (case / stage / execution file).
+  // "إرسال إشعار" is now a button inside this page (client feedback), not a
+  // separate sidebar entry; the /notifications/broadcast route is retained.
   { to: '/notifications',   label: 'الإشعارات',          allowedRoles: ALL_ROLES, section: 'عام' },
-  // PR-14 (customer feedback A-1 / Q-G expansion) — broadcast composer.
-  // Sidebar entry restricted by ROLE; backend re-validates membership scope.
-  // ADMIN_CLERK members never see this even though they may share a (branch,
-  // dept) with a SECTION_HEAD — only CENTRAL_SUPERVISOR / BRANCH_HEAD /
-  // SECTION_HEAD may broadcast.
-  { to: '/notifications/broadcast', label: 'إرسال إشعار',
-    allowedRoles: ['CENTRAL_SUPERVISOR', 'BRANCH_HEAD', 'SECTION_HEAD'], section: 'عام' },
 
   // ---- UI sub-phase B — `/admin/users` minimal (D-047 / D-048) ----
   // Conservative visibility: CENTRAL_SUPERVISOR only. Section-head /

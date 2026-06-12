@@ -10,32 +10,45 @@ export function ProfilePage() {
   return (
     <>
       <PageHeader title="ملفي الشخصي" subtitle="بيانات الحساب الحالي" />
-      <Card>
-        <CardHeader>
-          <CardTitle>المعلومات الأساسية</CardTitle>
-        </CardHeader>
-        <CardBody>
-          <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-            <Field label="الاسم الكامل" value={user.fullName} />
-            <Field label="اسم المستخدم" value={user.username} />
-            <Field label="رقم الجوال" value={user.mobileNumber} />
-            <Field label="الحالة" value={user.active ? 'نشط' : 'موقوف'} />
-            <Field
-              label="الأدوار"
-              value={user.roles.map((r) => ROLE_LABEL_AR[r]).join('، ') || '—'}
-            />
-            <Field
-              label="عضويات الأقسام"
-              value={
-                user.departmentMemberships.length === 0
-                  ? '—'
-                  : `${user.departmentMemberships.length} عضوية`
-              }
-            />
-          </dl>
-        </CardBody>
-      </Card>
+      <ProfileCard />
     </>
+  );
+}
+
+/**
+ * Reusable profile details card. Rendered standalone on /profile and embedded
+ * on the home page (client feedback: merge "ملفي الشخصي" into the dashboard).
+ */
+export function ProfileCard() {
+  const { user } = useAuth();
+  if (!user) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>المعلومات الأساسية</CardTitle>
+      </CardHeader>
+      <CardBody>
+        <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+          <Field label="الاسم الكامل" value={user.fullName} />
+          <Field label="اسم المستخدم" value={user.username} />
+          <Field label="رقم الجوال" value={user.mobileNumber} />
+          <Field label="الحالة" value={user.active ? 'نشط' : 'موقوف'} />
+          <Field
+            label="الأدوار"
+            value={user.roles.map((r) => ROLE_LABEL_AR[r]).join('، ') || '—'}
+          />
+          <Field
+            label="عضويات الأقسام"
+            value={
+              user.departmentMemberships.length === 0
+                ? '—'
+                : `${user.departmentMemberships.length} عضوية`
+            }
+          />
+        </dl>
+      </CardBody>
+    </Card>
   );
 }
 
